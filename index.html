@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週末抗懶散 V4.0</title>
+    <title>週末抗懶散 V4.1</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -17,14 +17,45 @@
         }
         .app-title { font-size: 1.1rem; font-weight: 900; color: #333; text-shadow: 0 2px 4px rgba(255,255,255,0.8); letter-spacing: 1px; }
 
-        .bottom-panel {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 400px;
-            background: rgba(255, 255, 255, 0.98); border-radius: 24px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 2000; padding: 20px; box-sizing: border-box;
-            backdrop-filter: blur(10px); transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        /* --- 底部面板容器 --- */
+        .bottom-panel-container {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            z-index: 2000; pointer-events: none; /* 讓點擊穿透到地圖，除非點到面板 */
+            display: flex; justify-content: center;
         }
 
+        /* --- 實際面板 --- */
+        .bottom-panel {
+            pointer-events: auto;
+            width: 95%; max-width: 420px;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px 24px 0 0; /* 下方貼底 */
+            box-shadow: 0 -5px 30px rgba(0,0,0,0.15);
+            padding: 0 20px 30px 20px; box-sizing: border-box;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            transform: translateY(0); /* 預設展開 */
+        }
+
+        /* 縮小狀態 */
+        .bottom-panel.minimized {
+            transform: translateY(calc(100% - 75px)); /* 只露出頂部 75px */
+        }
+
+        /* 面板把手區 (點擊縮放) */
+        .panel-handle-area {
+            width: 100%; height: 35px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+        }
+        .panel-handle {
+            width: 50px; height: 5px; background: #e0e0e0; border-radius: 10px;
+        }
+
+        /* 內容區 */
+        .panel-content { /* 用於縮放時隱藏/顯示 */ }
+
+        /* 模式切換 */
         .mode-switch-container {
             background: #f0f2f5; border-radius: 16px; padding: 5px;
             display: flex; margin-bottom: 20px; position: relative;
@@ -54,8 +85,17 @@
             box-shadow: 0 8px 20px rgba(142, 68, 173, 0.3);
         }
 
-        #result-area { display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        /* 結果顯示區 */
+        #result-area { display: none; margin-top: 10px; }
         
+        /* 縮小時顯示的精簡標題 */
+        .mini-header { display: none; align-items: center; justify-content: space-between; margin-bottom: 0; }
+        .bottom-panel.minimized .mini-header { display: flex; }
+        .bottom-panel.minimized .full-content { display: none; }
+        .bottom-panel.minimized .mode-switch-container { display: none; }
+        .bottom-panel.minimized .main-btn { display: none; }
+        
+        /* 展開時的完整內容 */
         .res-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .res-tag { background: #e0f2f1; color: #009688; padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; }
         .res-tag.event { background: #f3e5f5; color: #8e44ad; }
@@ -79,14 +119,16 @@
             border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
 
+        /* 定位按鈕 */
         .locate-btn {
-            position: absolute; bottom: 20px; right: 20px;
+            position: absolute; bottom: 300px; right: 20px;
             width: 45px; height: 45px; background: white; border-radius: 50%;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 1500; color: #333;
+            cursor: pointer; z-index: 1500; color: #333; transition: bottom 0.3s;
         }
-        .bottom-panel.expanded ~ .locate-btn { bottom: 350px; transition: bottom 0.3s; }
+        /* 當面板縮小時，定位按鈕往下移 */
+        .bottom-panel.minimized ~ .locate-btn { bottom: 100px; }
 
         .loading-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%;
@@ -106,54 +148,68 @@
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散 V4.0</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V4.1</div>
     </div>
 
     <div id="map"></div>
 
-    <div class="locate-btn" onclick="getCurrentLocation()">
-        <i class="fas fa-crosshairs"></i>
-    </div>
-
-    <div id="panel" class="bottom-panel">
-        
-        <div class="mode-switch-container">
-            <div class="mode-slider" id="slider"></div>
-            <div class="mode-option active" onclick="switchMode('normal', 0)">
-                <i class="fas fa-tree"></i> 多元探險
+    <div class="bottom-panel-container">
+        <div id="panel" class="bottom-panel">
+            <div class="panel-handle-area" onclick="togglePanel()">
+                <div class="panel-handle"></div>
             </div>
-            <div class="mode-option" onclick="switchMode('event', 100)">
-                <i class="fas fa-calendar-alt"></i> 活動/展覽
-            </div>
-        </div>
 
-        <div id="start-area">
-            <button id="main-btn" class="main-btn" onclick="startMission()">
-                <i class="fas fa-random"></i> 隨機生成行程
-            </button>
-            <p id="hint-text" style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
-                * 包含：大學、圖書館、步道、溫泉、市場、咖啡廳
-            </p>
-        </div>
-
-        <div id="result-area">
-            <div class="res-header">
-                <div class="res-tag" id="res-tag">類別</div>
-                <div style="font-size:0.8rem; color:#888;" id="res-dist">距離</div>
-            </div>
-            
-            <div class="res-title" id="res-name">地點名稱</div>
-            <div class="res-desc" id="res-desc">任務內容</div>
-
-            <div class="action-row">
-                <button class="btn-retry" onclick="startMission()">
+            <div class="mini-header">
+                <div style="font-weight:800; color:#333; font-size:1.1rem;" id="mini-title">尚未開始</div>
+                <button class="btn-retry" style="height:35px;" onclick="event.stopPropagation(); startMission()">
                     <i class="fas fa-redo"></i>
                 </button>
-                <a id="res-link" href="#" target="_blank" class="btn-link">
-                    <i class="fas fa-location-arrow"></i> 導航出發
-                </a>
+            </div>
+
+            <div class="full-content">
+                <div class="mode-switch-container">
+                    <div class="mode-slider" id="slider"></div>
+                    <div class="mode-option active" onclick="switchMode('normal', 0)">
+                        <i class="fas fa-tree"></i> 多元探險
+                    </div>
+                    <div class="mode-option" onclick="switchMode('event', 100)">
+                        <i class="fas fa-calendar-alt"></i> 活動/展覽
+                    </div>
+                </div>
+
+                <div id="start-area">
+                    <button id="main-btn" class="main-btn" onclick="startMission()">
+                        <i class="fas fa-random"></i> 隨機生成行程
+                    </button>
+                    <p id="hint-text" style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
+                        * 包含：大學、圖書館、步道、溫泉、市場、咖啡廳
+                    </p>
+                </div>
+
+                <div id="result-area">
+                    <div class="res-header">
+                        <div class="res-tag" id="res-tag">類別</div>
+                        <div style="font-size:0.8rem; color:#888;" id="res-dist">距離</div>
+                    </div>
+                    
+                    <div class="res-title" id="res-name">地點名稱</div>
+                    <div class="res-desc" id="res-desc">任務內容</div>
+
+                    <div class="action-row">
+                        <button class="btn-retry" onclick="startMission()">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                        <a id="res-link" href="#" target="_blank" class="btn-link">
+                            <i class="fas fa-location-arrow"></i> 導航出發
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
+    </div>
+
+    <div class="locate-btn" onclick="getCurrentLocation()">
+        <i class="fas fa-crosshairs"></i>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -161,8 +217,9 @@
         let map, userMarker, targetMarker, routeLine, rangeCircle;
         let currentLat, currentLng;
         let currentMode = 'normal';
+        let panelState = 'expanded'; // expanded or minimized
 
-        // --- 多元活動類別定義 ---
+        // 多元活動主題 (日常)
         const activityThemes = [
             { id: "university", name: "🎓 大學漫步", query: 'node["amenity"="university"]', task: "去校園裡散步，找找看有沒有便宜的學餐或大草皮。" },
             { id: "library", name: "📚 靈魂充電", query: 'node["amenity"="library"]', task: "進去圖書館，隨機抽一本雜誌或書，坐著讀 20 分鐘。" },
@@ -173,7 +230,7 @@
         ];
 
         // 連鎖店黑名單
-        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour"];
+        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart"];
 
         window.onload = function() {
             initMap();
@@ -217,6 +274,23 @@
             map.setView([lat, lng], 14);
         }
 
+        // --- 面板控制 ---
+        function togglePanel() {
+            const panel = document.getElementById('panel');
+            if (panel.classList.contains('minimized')) {
+                panel.classList.remove('minimized');
+                panelState = 'expanded';
+            } else {
+                panel.classList.add('minimized');
+                panelState = 'minimized';
+            }
+        }
+
+        function expandPanel() {
+            document.getElementById('panel').classList.remove('minimized');
+            panelState = 'expanded';
+        }
+
         window.switchMode = function(mode, offsetPercent) {
             currentMode = mode;
             document.getElementById('slider').style.transform = `translateX(${offsetPercent}%)`;
@@ -236,44 +310,43 @@
                 btn.className = 'main-btn';
                 hint.innerText = "* 包含：大學、圖書館、步道、溫泉、市場、咖啡廳";
             } else {
-                btn.innerHTML = '<i class="fas fa-search"></i> 搜尋文化部資料';
+                btn.innerHTML = '<i class="fas fa-search"></i> 搜尋活動場館';
                 btn.className = 'main-btn event-mode';
-                hint.innerText = "* 嘗試抓取真實展覽資料，若無則搜尋場館";
+                hint.innerText = "* 搜尋附近的藝術中心、博物館、展演空間";
             }
         }
 
         async function startMission() {
             if (!currentLat) { alert("請先定位"); return; }
             
-            // 隨機半徑：2km ~ 10km (範圍稍微拉大一點，因為大學/展覽館比較稀疏)
+            expandPanel(); // 開始時先展開面板
+            
             const radius = Math.floor(Math.random() * (10000 - 2000) + 2000);
             
             if (currentMode === 'normal') {
-                // --- 日常多元模式 ---
                 showLoading("正在尋找有趣的角落...");
-                
-                // 1. 隨機抽選一個主題
                 const theme = activityThemes[Math.floor(Math.random() * activityThemes.length)];
-                
-                // 2. 構建 Query
-                const query = `
-                    [out:json][timeout:15];
-                    (
-                      ${theme.query}(around:${radius},${currentLat},${currentLng});
-                    );
-                    out 20;
-                `;
-                
+                const query = `[out:json][timeout:15];(${theme.query}(around:${radius},${currentLat},${currentLng}););out 30;`;
                 fetchOSM(query, theme);
 
             } else {
-                // --- 期間限定模式 (文化部 API) ---
-                showLoading("正在連線文化部資料庫...");
-                fetchCultureData();
+                // --- 修正後的活動模式：穩定的場館搜尋 ---
+                showLoading("正在搜尋展覽場館...");
+                const theme = { name: "🏛️ 藝文活動", task: "前往此處，看看海報牆或售票口最近有什麼演出或展覽。" };
+                
+                // 搜尋：博物館、美術館、藝術中心、劇院、電影院、Live House
+                const query = `
+                    [out:json][timeout:15];
+                    (
+                      node["tourism"~"museum|gallery"](around:${radius},${currentLat},${currentLng});
+                      node["amenity"~"arts_centre|theatre|cinema"](around:${radius},${currentLat},${currentLng});
+                    );
+                    out 20;
+                `;
+                fetchOSM(query, theme);
             }
         }
 
-        // 處理 OSM 資料 (日常模式)
         async function fetchOSM(query, theme) {
             const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
             try {
@@ -291,15 +364,14 @@
                 }
 
                 if (candidates.length === 0) {
-                    // 如果這個主題找不到 (例如附近沒大學)，遞迴重試一次 (換個主題)
-                    // 簡單處理：直接換成找公園 (保底)
-                    if (theme.id !== 'nature') {
+                     // 遞迴重試 (如果沒大學，就找公園)
+                    if (theme.id && theme.id !== 'nature') {
                         const fallbackTheme = activityThemes.find(t => t.id === 'nature');
                         const fallbackQuery = `[out:json][timeout:15];(${fallbackTheme.query}(around:5000,${currentLat},${currentLng}););out 20;`;
                         fetchOSM(fallbackQuery, fallbackTheme);
                         return;
                     } else {
-                        alert("附近真的太荒涼了...找不到點");
+                        alert("附近真的太荒涼了...找不到適合的點");
                         hideLoading();
                         return;
                     }
@@ -315,82 +387,9 @@
             }
         }
 
-        // 處理文化部 API (活動模式)
-        async function fetchCultureData() {
-            // 文化部展覽資訊 API (類別6 = 展覽)
-            // 由於 API 不支援經緯度篩選，我們必須抓下來自己算距離 (只抓前 100 筆或使用全部)
-            // 備註：若 API 失效，會自動降級為 OSM 場館搜尋
-            const apiUrl = "https://cloud.culture.tw/frontsite/trans/SearchShowAction.do?method=doFindTypeJ&category=6";
-            
-            try {
-                const response = await fetch(apiUrl);
-                const events = await response.json();
-                
-                // 篩選距離 (Client-side filtering)
-                const nearbyEvents = events.filter(ev => {
-                    //有些資料沒有經緯度
-                    if (!ev.showInfo || !ev.showInfo[0].latitude) return false;
-                    
-                    const eLat = parseFloat(ev.showInfo[0].latitude);
-                    const eLng = parseFloat(ev.showInfo[0].longitude);
-                    
-                    const dist = getDistanceFromLatLonInKm(currentLat, currentLng, eLat, eLng);
-                    return dist <= 15; // 找 15km 內的活動
-                });
-
-                if (nearbyEvents.length > 0) {
-                    // 找到活動了！
-                    const ev = nearbyEvents[Math.floor(Math.random() * nearbyEvents.length)];
-                    const info = ev.showInfo[0];
-                    const place = {
-                        lat: parseFloat(info.latitude),
-                        lon: parseFloat(info.longitude),
-                        tags: { name: info.locationName } // 使用場館名
-                    };
-                    
-                    const taskName = ev.title;
-                    const taskDesc = `正在展出：${ev.title}。<br>地點：${info.location}。<br>去看看這場展覽吧！`;
-                    
-                    generateResult(place, "🎨 真實展覽", taskDesc, taskName);
-                } else {
-                    // 沒找到活動 -> 降級去 OSM 找博物館/電影院
-                    console.log("附近無文化部活動，降級搜尋場館");
-                    const radius = 5000;
-                    const fallbackQuery = `
-                        [out:json][timeout:15];
-                        (
-                          node["amenity"~"cinema|theatre|arts_centre"](around:${radius},${currentLat},${currentLng});
-                          node["tourism"~"museum|gallery"](around:${radius},${currentLat},${currentLng});
-                        );
-                        out 20;
-                    `;
-                    // 這裡復用 OSM 的邏輯，但為了簡化代碼，我直接模擬一次 fetchOSM
-                    // 實際專案可重構，這裡直接呼叫：
-                    const theme = { name: "🏛️ 藝文場館", task: "去這裡看看最近有什麼活動或展覽。" };
-                    fetchOSM(fallbackQuery, theme);
-                }
-
-            } catch (e) {
-                console.error("文化部 API 失敗", e);
-                // 失敗也降級
-                const theme = { name: "🏛️ 藝文場館", task: "去這裡看看最近有什麼活動或展覽。" };
-                const fallbackQuery = `[out:json];(node["tourism"="museum"](around:5000,${currentLat},${currentLng}););out 10;`;
-                fetchOSM(fallbackQuery, theme);
-            }
-        }
-
-        // 輔助：計算距離
-        function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
-            var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1); 
-            var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
-            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-            return R * c;
-        }
-        function deg2rad(deg) { return deg * (Math.PI/180) }
-
-        function generateResult(place, type, desc, overrideName) {
+        function generateResult(place, type, desc) {
             const tags = place.tags || {};
-            const name = overrideName || tags.name || "未知的地點";
+            const name = tags.name || "未知的地點";
             const lat = place.lat;
             const lon = place.lon;
             const dist = (map.distance([currentLat, currentLng], [lat, lon]) / 1000).toFixed(1);
@@ -415,27 +414,29 @@
             routeLine = L.polyline([[currentLat, currentLng], [lat, lon]], {
                 color: lineColor, weight: 4, dashArray: '10, 10', opacity: 0.8
             }).addTo(map);
-            map.fitBounds(routeLine.getBounds().pad(0.3));
+            map.fitBounds(routeLine.getBounds().pad(0.3)); // 縮放地圖讓路線可見
 
-            // 更新面板文字
+            // 更新面板文字 (完整版)
             document.getElementById('res-tag').innerText = type;
             document.getElementById('res-tag').className = currentMode === 'normal' ? 'res-tag' : 'res-tag event';
             document.getElementById('res-dist').innerText = `距離 ${dist} km`;
             document.getElementById('res-name').innerText = name;
-            document.getElementById('res-desc').innerHTML = desc; // 支援 HTML 換行
+            document.getElementById('res-desc').innerHTML = desc;
             document.getElementById('res-desc').className = currentMode === 'normal' ? 'res-desc' : 'res-desc event';
             
-            // 導航連結
+            // 更新縮小版文字
+            document.getElementById('mini-title').innerText = name;
+
+            // 導航連結 (座標模式)
             const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
             const btnLink = document.getElementById('res-link');
             btnLink.href = gmapUrl;
             btnLink.className = currentMode === 'normal' ? 'btn-link' : 'btn-link event';
 
-            // 展開
+            // 顯示結果區
             document.getElementById('start-area').style.display = 'none';
             document.getElementById('result-area').style.display = 'block';
-            document.getElementById('panel').classList.add('expanded');
-
+            
             hideLoading();
         }
 
