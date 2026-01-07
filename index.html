@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週末抗懶散 V3.1 (精準導航)</title>
+    <title>週末抗懶散 V4.0</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -42,9 +42,9 @@
 
         .main-btn {
             width: 100%; padding: 18px; border: none; border-radius: 18px;
-            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
             color: white; font-size: 1.1rem; font-weight: 800;
-            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.3);
+            box-shadow: 0 8px 20px rgba(56, 239, 125, 0.3);
             cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
             transition: transform 0.1s;
         }
@@ -57,19 +57,19 @@
         #result-area { display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
         
         .res-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-        .res-tag { background: #eef4ff; color: #3498db; padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; }
+        .res-tag { background: #e0f2f1; color: #009688; padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; }
         .res-tag.event { background: #f3e5f5; color: #8e44ad; }
         
         .res-title { font-size: 1.3rem; font-weight: 800; color: #2c3e50; margin-bottom: 8px; line-height: 1.3; }
         .res-desc { 
             font-size: 0.95rem; color: #555; line-height: 1.6; margin-bottom: 20px; 
-            background: #f8f9fa; padding: 15px; border-radius: 12px; border-left: 4px solid #3498db;
+            background: #f8f9fa; padding: 15px; border-radius: 12px; border-left: 4px solid #38ef7d;
         }
         .res-desc.event { border-left-color: #8e44ad; }
 
         .action-row { display: flex; gap: 10px; }
         .btn-link {
-            flex: 1; background: #3498db; color: white; text-decoration: none;
+            flex: 1; background: #11998e; color: white; text-decoration: none;
             padding: 12px; border-radius: 12px; font-weight: bold; text-align: center;
             display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.95rem;
         }
@@ -86,7 +86,7 @@
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 1500; color: #333;
         }
-        .bottom-panel.expanded ~ .locate-btn { bottom: 320px; transition: bottom 0.3s; }
+        .bottom-panel.expanded ~ .locate-btn { bottom: 350px; transition: bottom 0.3s; }
 
         .loading-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%;
@@ -94,7 +94,7 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             backdrop-filter: blur(5px);
         }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #38ef7d; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -106,7 +106,7 @@
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散 V3.1</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V4.0</div>
     </div>
 
     <div id="map"></div>
@@ -120,37 +120,37 @@
         <div class="mode-switch-container">
             <div class="mode-slider" id="slider"></div>
             <div class="mode-option active" onclick="switchMode('normal', 0)">
-                <i class="fas fa-home"></i> 日常探險
+                <i class="fas fa-tree"></i> 多元探險
             </div>
             <div class="mode-option" onclick="switchMode('event', 100)">
-                <i class="fas fa-ticket-alt"></i> 期間限定
+                <i class="fas fa-calendar-alt"></i> 活動/展覽
             </div>
         </div>
 
         <div id="start-area">
             <button id="main-btn" class="main-btn" onclick="startMission()">
-                <i class="fas fa-dice"></i> 尋找獨立好店
+                <i class="fas fa-random"></i> 隨機生成行程
             </button>
-            <p style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
-                * 已過濾 90% 連鎖店，導航將採精準座標定位
+            <p id="hint-text" style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
+                * 包含：大學、圖書館、步道、溫泉、市場、咖啡廳
             </p>
         </div>
 
         <div id="result-area">
             <div class="res-header">
-                <div class="res-tag" id="res-tag">☕ 獨立咖啡</div>
-                <div style="font-size:0.8rem; color:#888;" id="res-dist">2.3 km</div>
+                <div class="res-tag" id="res-tag">類別</div>
+                <div style="font-size:0.8rem; color:#888;" id="res-dist">距離</div>
             </div>
             
-            <div class="res-title" id="res-name">讀取中...</div>
-            <div class="res-desc" id="res-desc">讀取中...</div>
+            <div class="res-title" id="res-name">地點名稱</div>
+            <div class="res-desc" id="res-desc">任務內容</div>
 
             <div class="action-row">
                 <button class="btn-retry" onclick="startMission()">
                     <i class="fas fa-redo"></i>
                 </button>
                 <a id="res-link" href="#" target="_blank" class="btn-link">
-                    <i class="fas fa-location-arrow"></i> 導航到此位置
+                    <i class="fas fa-location-arrow"></i> 導航出發
                 </a>
             </div>
         </div>
@@ -161,15 +161,19 @@
         let map, userMarker, targetMarker, routeLine, rangeCircle;
         let currentLat, currentLng;
         let currentMode = 'normal';
-        
-        // 黑名單 (常見連鎖店)
-        const chainBlockList = [
-            "7-Eleven", "7-ELEVEN", "FamilyMart", "全家", "Hi-Life", "萊爾富", "OK Mart", "OK超商",
-            "Starbucks", "星巴克", "Louisa", "路易莎", "Cama", "85度C", "85°C",
-            "McDonald", "麥當勞", "KFC", "肯德基", "MOS Burger", "摩斯", "Subway",
-            "PxMart", "全聯", "Carrefour", "家樂福", "Watsons", "屈臣氏", "Cosmed", "康是美",
-            "Yoshinoya", "吉野家", "Sukiya", "すき家", "Laya", "拉亞"
+
+        // --- 多元活動類別定義 ---
+        const activityThemes = [
+            { id: "university", name: "🎓 大學漫步", query: 'node["amenity"="university"]', task: "去校園裡散步，找找看有沒有便宜的學餐或大草皮。" },
+            { id: "library", name: "📚 靈魂充電", query: 'node["amenity"="library"]', task: "進去圖書館，隨機抽一本雜誌或書，坐著讀 20 分鐘。" },
+            { id: "worship", name: "⛩️ 沉澱心靈", query: 'node["amenity"="place_of_worship"]', task: "進去感受一下建築的寧靜，觀察屋頂或窗戶的細節。" },
+            { id: "nature", name: "🌲 自然呼吸", query: '(node["leisure"="park"]; node["tourism"="viewpoint"];)', task: "找到這個地方的最高點或中心點，深呼吸三次。" },
+            { id: "market", name: "🥬 傳統市場", query: 'node["amenity"="marketplace"]', task: "走進去感受在地的活力，買一樣當季水果。" },
+            { id: "cafe", name: "☕ 獨立咖啡", query: 'node["amenity"="cafe"]', task: "點一杯沒喝過的飲料，佔領一個角落發呆。" }
         ];
+
+        // 連鎖店黑名單
+        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour"];
 
         window.onload = function() {
             initMap();
@@ -208,7 +212,7 @@
         function updateUserLocation(lat, lng) {
             if (userMarker) map.removeLayer(userMarker);
             userMarker = L.circleMarker([lat, lng], {
-                radius: 8, fillColor: '#2c3e50', color: '#fff', weight: 3, fillOpacity: 1
+                radius: 8, fillColor: '#11998e', color: '#fff', weight: 3, fillOpacity: 1
             }).addTo(map);
             map.setView([lat, lng], 14);
         }
@@ -222,129 +226,182 @@
             else opts[1].classList.add('active');
 
             const btn = document.getElementById('main-btn');
-            const result = document.getElementById('result-area');
-            result.style.display = 'none';
+            const hint = document.getElementById('hint-text');
+            
+            document.getElementById('result-area').style.display = 'none';
             document.getElementById('start-area').style.display = 'block';
 
             if (mode === 'normal') {
-                btn.innerHTML = '<i class="fas fa-dice"></i> 尋找獨立好店';
+                btn.innerHTML = '<i class="fas fa-random"></i> 隨機生成行程';
                 btn.className = 'main-btn';
+                hint.innerText = "* 包含：大學、圖書館、步道、溫泉、市場、咖啡廳";
             } else {
-                btn.innerHTML = '<i class="fas fa-ticket-alt"></i> 尋找當期活動';
+                btn.innerHTML = '<i class="fas fa-search"></i> 搜尋文化部資料';
                 btn.className = 'main-btn event-mode';
+                hint.innerText = "* 嘗試抓取真實展覽資料，若無則搜尋場館";
             }
         }
 
         async function startMission() {
             if (!currentLat) { alert("請先定位"); return; }
             
-            // 隨機半徑：1500m ~ 8000m
-            const radius = Math.floor(Math.random() * (8000 - 1500) + 1500);
+            // 隨機半徑：2km ~ 10km (範圍稍微拉大一點，因為大學/展覽館比較稀疏)
+            const radius = Math.floor(Math.random() * (10000 - 2000) + 2000);
             
-            showLoading(currentMode === 'normal' ? "正在過濾連鎖店..." : "搜尋展覽與活動...");
-
-            let query = "";
             if (currentMode === 'normal') {
-                query = `
+                // --- 日常多元模式 ---
+                showLoading("正在尋找有趣的角落...");
+                
+                // 1. 隨機抽選一個主題
+                const theme = activityThemes[Math.floor(Math.random() * activityThemes.length)];
+                
+                // 2. 構建 Query
+                const query = `
                     [out:json][timeout:15];
                     (
-                      node["amenity"~"cafe|restaurant|bar|pub"](around:${radius},${currentLat},${currentLng});
-                      node["shop"~"books|bakery|tea"](around:${radius},${currentLat},${currentLng});
-                    );
-                    out 30;
-                `;
-            } else {
-                query = `
-                    [out:json][timeout:15];
-                    (
-                      node["amenity"~"cinema|theatre|arts_centre"](around:${radius},${currentLat},${currentLng});
-                      node["tourism"~"museum|gallery"](around:${radius},${currentLat},${currentLng});
+                      ${theme.query}(around:${radius},${currentLat},${currentLng});
                     );
                     out 20;
                 `;
+                
+                fetchOSM(query, theme);
+
+            } else {
+                // --- 期間限定模式 (文化部 API) ---
+                showLoading("正在連線文化部資料庫...");
+                fetchCultureData();
             }
+        }
 
+        // 處理 OSM 資料 (日常模式)
+        async function fetchOSM(query, theme) {
             const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
-
             try {
                 const response = await fetch(url);
                 const data = await response.json();
                 
-                if (!data.elements || data.elements.length === 0) {
-                    alert("這附近有點荒涼，找不到適合的點。試試看移動一下位置？");
-                    hideLoading();
-                    return;
+                let candidates = data.elements || [];
+                
+                // 過濾連鎖店 (只針對 Cafe)
+                if (theme.id === 'cafe') {
+                    candidates = candidates.filter(place => {
+                        const name = place.tags.name || "";
+                        return !chainBlockList.some(chain => name.includes(chain));
+                    });
                 }
 
-                let candidates = data.elements;
-                if (currentMode === 'normal') {
-                    const strictMode = Math.random() > 0.05; 
-                    if (strictMode) {
-                        candidates = candidates.filter(place => {
-                            const name = place.tags.name || "";
-                            return !chainBlockList.some(chain => name.includes(chain));
-                        });
+                if (candidates.length === 0) {
+                    // 如果這個主題找不到 (例如附近沒大學)，遞迴重試一次 (換個主題)
+                    // 簡單處理：直接換成找公園 (保底)
+                    if (theme.id !== 'nature') {
+                        const fallbackTheme = activityThemes.find(t => t.id === 'nature');
+                        const fallbackQuery = `[out:json][timeout:15];(${fallbackTheme.query}(around:5000,${currentLat},${currentLng}););out 20;`;
+                        fetchOSM(fallbackQuery, fallbackTheme);
+                        return;
+                    } else {
+                        alert("附近真的太荒涼了...找不到點");
+                        hideLoading();
+                        return;
                     }
                 }
-                if (candidates.length === 0) candidates = data.elements;
 
                 const place = candidates[Math.floor(Math.random() * candidates.length)];
-                generateResult(place);
+                generateResult(place, theme.name, theme.task);
 
             } catch (e) {
                 console.error(e);
-                alert("搜尋失敗，請檢查網路");
+                alert("地圖資料連線失敗");
                 hideLoading();
             }
         }
 
-        function generateResult(place) {
+        // 處理文化部 API (活動模式)
+        async function fetchCultureData() {
+            // 文化部展覽資訊 API (類別6 = 展覽)
+            // 由於 API 不支援經緯度篩選，我們必須抓下來自己算距離 (只抓前 100 筆或使用全部)
+            // 備註：若 API 失效，會自動降級為 OSM 場館搜尋
+            const apiUrl = "https://cloud.culture.tw/frontsite/trans/SearchShowAction.do?method=doFindTypeJ&category=6";
+            
+            try {
+                const response = await fetch(apiUrl);
+                const events = await response.json();
+                
+                // 篩選距離 (Client-side filtering)
+                const nearbyEvents = events.filter(ev => {
+                    //有些資料沒有經緯度
+                    if (!ev.showInfo || !ev.showInfo[0].latitude) return false;
+                    
+                    const eLat = parseFloat(ev.showInfo[0].latitude);
+                    const eLng = parseFloat(ev.showInfo[0].longitude);
+                    
+                    const dist = getDistanceFromLatLonInKm(currentLat, currentLng, eLat, eLng);
+                    return dist <= 15; // 找 15km 內的活動
+                });
+
+                if (nearbyEvents.length > 0) {
+                    // 找到活動了！
+                    const ev = nearbyEvents[Math.floor(Math.random() * nearbyEvents.length)];
+                    const info = ev.showInfo[0];
+                    const place = {
+                        lat: parseFloat(info.latitude),
+                        lon: parseFloat(info.longitude),
+                        tags: { name: info.locationName } // 使用場館名
+                    };
+                    
+                    const taskName = ev.title;
+                    const taskDesc = `正在展出：${ev.title}。<br>地點：${info.location}。<br>去看看這場展覽吧！`;
+                    
+                    generateResult(place, "🎨 真實展覽", taskDesc, taskName);
+                } else {
+                    // 沒找到活動 -> 降級去 OSM 找博物館/電影院
+                    console.log("附近無文化部活動，降級搜尋場館");
+                    const radius = 5000;
+                    const fallbackQuery = `
+                        [out:json][timeout:15];
+                        (
+                          node["amenity"~"cinema|theatre|arts_centre"](around:${radius},${currentLat},${currentLng});
+                          node["tourism"~"museum|gallery"](around:${radius},${currentLat},${currentLng});
+                        );
+                        out 20;
+                    `;
+                    // 這裡復用 OSM 的邏輯，但為了簡化代碼，我直接模擬一次 fetchOSM
+                    // 實際專案可重構，這裡直接呼叫：
+                    const theme = { name: "🏛️ 藝文場館", task: "去這裡看看最近有什麼活動或展覽。" };
+                    fetchOSM(fallbackQuery, theme);
+                }
+
+            } catch (e) {
+                console.error("文化部 API 失敗", e);
+                // 失敗也降級
+                const theme = { name: "🏛️ 藝文場館", task: "去這裡看看最近有什麼活動或展覽。" };
+                const fallbackQuery = `[out:json];(node["tourism"="museum"](around:5000,${currentLat},${currentLng}););out 10;`;
+                fetchOSM(fallbackQuery, theme);
+            }
+        }
+
+        // 輔助：計算距離
+        function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
+            var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1); 
+            var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+            return R * c;
+        }
+        function deg2rad(deg) { return deg * (Math.PI/180) }
+
+        function generateResult(place, type, desc, overrideName) {
             const tags = place.tags || {};
-            const name = tags.name || "未知的秘境";
+            const name = overrideName || tags.name || "未知的地點";
             const lat = place.lat;
             const lon = place.lon;
             const dist = (map.distance([currentLat, currentLng], [lat, lon]) / 1000).toFixed(1);
 
-            let type = "🚩 探險";
-            let desc = "";
-            let linkText = "導航到此位置";
-            
-            // --- 修正：使用座標導航，避免名稱模糊導致跳轉到別處 ---
-            // destination=lat,lng 
-            // 這樣 Google Maps 會直接在該座標插旗，不會再去搜尋店名
-            let gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
-            
-            if (currentMode === 'normal') {
-                if (tags.amenity === 'cafe') {
-                    type = "☕ 獨立咖啡";
-                    desc = `前往「${name}」，點一杯店裡的特調，並觀察店員的選歌品味。`;
-                } else if (tags.amenity === 'bar' || tags.amenity === 'pub') {
-                    type = "🍺 微醺時光";
-                    desc = `前往「${name}」，點一杯沒喝過的酒，慶祝今天還活著。`;
-                } else if (tags.shop === 'books') {
-                    type = "📚 獨立書店";
-                    desc = `去「${name}」逛逛，買一本封面吸引你的書。`;
-                } else {
-                    type = "🍽️ 在地探索";
-                    desc = `目標是「${name}」，去看看這家店有什麼特別的地方。`;
-                }
-            } else {
-                if (tags.amenity === 'cinema') {
-                    type = "🎬 電影時光";
-                    desc = `去「${name}」看一場電影。不挑片，直接看最近開演的那一場！`;
-                } else {
-                    type = "🎨 藝文展覽";
-                    desc = `前往「${name}」，看看現在有什麼展覽或活動。`;
-                }
-            }
-
-            // 更新 UI
+            // 更新地圖
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
             if (rangeCircle) map.removeLayer(rangeCircle);
 
             const iconUrl = currentMode === 'normal' 
-                ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png'
+                ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png'
                 : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png';
 
             const icon = L.icon({
@@ -354,24 +411,27 @@
             });
             targetMarker = L.marker([lat, lon], {icon: icon}).addTo(map);
 
-            const lineColor = currentMode === 'normal' ? '#3498db' : '#8e44ad';
+            const lineColor = currentMode === 'normal' ? '#11998e' : '#8e44ad';
             routeLine = L.polyline([[currentLat, currentLng], [lat, lon]], {
                 color: lineColor, weight: 4, dashArray: '10, 10', opacity: 0.8
             }).addTo(map);
             map.fitBounds(routeLine.getBounds().pad(0.3));
 
+            // 更新面板文字
             document.getElementById('res-tag').innerText = type;
             document.getElementById('res-tag').className = currentMode === 'normal' ? 'res-tag' : 'res-tag event';
             document.getElementById('res-dist').innerText = `距離 ${dist} km`;
             document.getElementById('res-name').innerText = name;
-            document.getElementById('res-desc').innerText = desc;
+            document.getElementById('res-desc').innerHTML = desc; // 支援 HTML 換行
             document.getElementById('res-desc').className = currentMode === 'normal' ? 'res-desc' : 'res-desc event';
             
+            // 導航連結
+            const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
             const btnLink = document.getElementById('res-link');
-            btnLink.innerHTML = `<i class="fas fa-location-arrow"></i> ${linkText}`;
             btnLink.href = gmapUrl;
             btnLink.className = currentMode === 'normal' ? 'btn-link' : 'btn-link event';
 
+            // 展開
             document.getElementById('start-area').style.display = 'none';
             document.getElementById('result-area').style.display = 'block';
             document.getElementById('panel').classList.add('expanded');
