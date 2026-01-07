@@ -3,51 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>台灣說走就走 - 週末抗懶散神器</title>
+    <title>台灣週末抗懶散 V2.0</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { margin: 0; padding: 0; font-family: "Microsoft JhengHei", "SF Pro TC", sans-serif; background: #f0f2f5; overflow: hidden; }
+        body { margin: 0; padding: 0; font-family: "SF Pro TC", "Microsoft JhengHei", sans-serif; background: #f0f2f5; overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
-        /* 頂部標題列 */
+        /* 頂部標題 */
         .top-bar {
             position: absolute; top: 0; left: 0; width: 100%;
             padding: 15px 20px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%);
+            background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%);
             z-index: 1000; pointer-events: none;
+            display: flex; justify-content: space-between;
         }
-        .app-title { font-size: 1.2rem; font-weight: 900; color: #333; text-shadow: 0 2px 4px rgba(255,255,255,0.8); }
+        .app-title { font-size: 1.1rem; font-weight: 900; color: #333; text-shadow: 0 2px 4px rgba(255,255,255,0.8); }
 
-        /* 底部控制面板 */
-        .bottom-panel {
+        /* --- 底部面板 (包含控制與結果) --- */
+        .bottom-sheet {
             position: absolute; bottom: 0; left: 0; width: 100%;
             background: rgba(255, 255, 255, 0.98);
             border-radius: 20px 20px 0 0;
-            box-shadow: 0 -5px 25px rgba(0,0,0,0.1);
-            z-index: 1000; padding: 20px; box-sizing: border-box;
-            transition: transform 0.3s ease;
+            box-shadow: 0 -5px 30px rgba(0,0,0,0.15);
+            z-index: 2000;
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            max-height: 80vh;
+            display: flex; flex-direction: column;
         }
+        
+        /* 面板把手 (用來指示可滑動) */
+        .sheet-handle-bar {
+            width: 100%; padding: 10px 0; cursor: pointer;
+            display: flex; justify-content: center;
+        }
+        .sheet-handle { width: 40px; height: 5px; background: #ddd; border-radius: 10px; }
 
-        /* 交通工具選擇器 */
-        .transport-selector {
-            display: flex; justify-content: space-between; margin-bottom: 20px;
-            overflow-x: auto; padding-bottom: 5px; gap: 10px;
+        /* 內容區域 */
+        .sheet-content { padding: 0 20px 30px 20px; overflow-y: auto; }
+
+        /* 1. 設定模式 (預設顯示) */
+        #setup-view { display: block; }
+        
+        /* 交通工具按鈕 */
+        .transport-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px;
         }
         .transport-btn {
-            flex: 1; min-width: 60px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             padding: 10px 5px; border-radius: 12px;
             background: #f4f6f8; border: 2px solid transparent;
             cursor: pointer; transition: all 0.2s;
         }
-        .transport-btn i { font-size: 1.2rem; margin-bottom: 5px; color: #666; }
-        .transport-btn span { font-size: 0.75rem; font-weight: bold; color: #888; }
-        
-        /* 選中狀態 */
-        .transport-btn.active {
-            background: #e3f2fd; border-color: #4285f4; transform: translateY(-2px);
-        }
+        .transport-btn i { font-size: 1.2rem; margin-bottom: 5px; color: #888; }
+        .transport-btn span { font-size: 0.7rem; font-weight: bold; color: #888; }
+        .transport-btn.active { background: #e3f2fd; border-color: #4285f4; }
         .transport-btn.active i, .transport-btn.active span { color: #4285f4; }
 
         /* 主按鈕 */
@@ -56,157 +66,143 @@
             background: linear-gradient(135deg, #FF6B6B 0%, #FF8E53 100%);
             color: white; font-size: 1.1rem; font-weight: 800;
             box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
-            cursor: pointer; transition: transform 0.1s;
-            display: flex; align-items: center; justify-content: center; gap: 10px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
         }
-        .main-btn:active { transform: scale(0.96); }
+        .main-btn:active { transform: scale(0.98); }
 
-        /* --- 任務卡片 (彈窗) --- */
-        #mission-card {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
-            width: 85%; max-width: 360px;
-            background: white; border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-            z-index: 2000; padding: 0; overflow: hidden;
-            opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        #mission-card.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+        /* 2. 結果模式 (預設隱藏) */
+        #result-view { display: none; }
 
-        .card-header {
-            background: #4285f4; color: white; padding: 15px 20px;
-            font-weight: bold; font-size: 0.9rem; letter-spacing: 1px;
-            display: flex; justify-content: space-between; align-items: center;
+        .mission-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .mission-badge {
+            background: #eef4ff; color: #4285f4; padding: 4px 10px; 
+            border-radius: 6px; font-size: 0.8rem; font-weight: bold;
         }
-        .card-body { padding: 25px 20px; text-align: center; }
-        
-        .mission-tag {
-            display: inline-block; padding: 5px 12px; border-radius: 20px;
-            background: #eef4ff; color: #4285f4; font-size: 0.8rem; font-weight: bold;
-            margin-bottom: 15px;
+        .mission-dist { font-size: 0.85rem; color: #666; }
+
+        .mission-title { font-size: 1.4rem; font-weight: 800; color: #333; margin-bottom: 8px; line-height: 1.3; }
+        .mission-desc { 
+            font-size: 1rem; color: #555; line-height: 1.6; margin-bottom: 20px; 
+            background: #f9f9f9; padding: 15px; border-radius: 12px; border-left: 4px solid #ff6b6b;
         }
-        .mission-title { font-size: 1.5rem; font-weight: 900; color: #333; margin-bottom: 10px; line-height: 1.3; }
-        .mission-desc { font-size: 0.95rem; color: #666; margin-bottom: 25px; line-height: 1.6; }
-        
-        .card-footer {
-            padding: 20px; border-top: 1px solid #f0f0f0;
-            display: flex; gap: 10px;
+
+        .action-row { display: flex; gap: 10px; }
+        .btn-gmap {
+            flex: 2; background: #4285f4; color: white; text-decoration: none;
+            padding: 12px; border-radius: 12px; font-weight: bold; text-align: center;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
         }
-        .btn-action {
-            flex: 1; padding: 12px; border-radius: 10px; border: none;
-            font-weight: bold; cursor: pointer; text-decoration: none;
-            display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+        .btn-retry {
+            flex: 1; background: #f0f0f0; color: #555; border: none;
+            padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer;
         }
-        .btn-outline { background: #f5f5f5; color: #666; }
-        .btn-primary { background: #4285f4; color: white; }
 
         /* 定位按鈕 */
         .locate-btn {
-            position: absolute; bottom: 240px; right: 20px;
+            position: absolute; bottom: 200px; right: 20px; /* 根據面板高度調整 */
             width: 45px; height: 45px; background: white; border-radius: 50%;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 900; color: #333;
+            cursor: pointer; z-index: 900; color: #333; transition: bottom 0.3s;
         }
 
         /* Loading */
         .loading-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%;
-            background: rgba(255,255,255,0.9); z-index: 3000;
+            background: rgba(255,255,255,0.8); z-index: 3000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.5s;
+            backdrop-filter: blur(5px);
         }
-        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #ff6b6b; border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #4285f4; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 縮小狀態 */
+        .bottom-sheet.minimized { transform: translateY(calc(100% - 60px)); }
     </style>
 </head>
 <body>
 
     <div id="loading" class="loading-overlay">
         <div class="spinner"></div>
-        <p style="margin-top:15px; font-weight:bold; color:#555;">正在尋找您的位置...</p>
+        <p id="loading-text" style="margin-top:15px; font-weight:bold; color:#555;">正在定位中...</p>
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散神器</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V2.0</div>
     </div>
 
     <div id="map"></div>
 
-    <div class="locate-btn" onclick="getCurrentLocation()">
+    <div class="locate-btn" id="locate-btn" onclick="getCurrentLocation()">
         <i class="fas fa-crosshairs"></i>
     </div>
 
-    <div class="bottom-panel">
-        <div style="margin-bottom:10px; font-size:0.9rem; font-weight:bold; color:#555;">今天怎麼去？</div>
-        <div class="transport-selector">
-            <div class="transport-btn" onclick="selectMode('walk', 1.0)">
-                <i class="fas fa-walking"></i>
-                <span>步行</span>
-            </div>
-            <div class="transport-btn" onclick="selectMode('bike', 5.0)">
-                <i class="fas fa-bicycle"></i>
-                <span>單車</span>
-            </div>
-            <div class="transport-btn active" onclick="selectMode('scooter', 15.0)">
-                <i class="fas fa-motorcycle"></i>
-                <span>機車</span>
-            </div>
-            <div class="transport-btn" onclick="selectMode('transit', 10.0)">
-                <i class="fas fa-train"></i>
-                <span>大眾運輸</span>
-            </div>
-            <div class="transport-btn" onclick="selectMode('car', 40.0)">
-                <i class="fas fa-car"></i>
-                <span>開車</span>
-            </div>
+    <div class="bottom-sheet" id="bottom-sheet">
+        <div class="sheet-handle-bar" onclick="toggleSheet()">
+            <div class="sheet-handle"></div>
         </div>
+        
+        <div class="sheet-content">
+            
+            <div id="setup-view">
+                <div style="margin-bottom:10px; font-size:0.9rem; font-weight:bold; color:#555;">今天想去多遠？</div>
+                <div class="transport-grid">
+                    <div class="transport-btn" onclick="selectMode('walk', 800)">
+                        <i class="fas fa-walking"></i>
+                        <span>走路(800m)</span>
+                    </div>
+                    <div class="transport-btn" onclick="selectMode('bike', 2000)">
+                        <i class="fas fa-bicycle"></i>
+                        <span>單車(2km)</span>
+                    </div>
+                    <div class="transport-btn active" onclick="selectMode('scooter', 5000)">
+                        <i class="fas fa-motorcycle"></i>
+                        <span>機車(5km)</span>
+                    </div>
+                    <div class="transport-btn" onclick="selectMode('transit', 10000)">
+                        <i class="fas fa-train"></i>
+                        <span>捷運(10km)</span>
+                    </div>
+                    <div class="transport-btn" onclick="selectMode('car', 30000)">
+                        <i class="fas fa-car"></i>
+                        <span>開車(30km)</span>
+                    </div>
+                </div>
 
-        <button class="main-btn" onclick="generateMission()">
-            <i class="fas fa-dice"></i> 給我一個任務！
-        </button>
-    </div>
-
-    <div id="mission-card">
-        <div class="card-header">
-            <span>MISSION #<span id="mission-id">001</span></span>
-            <i class="fas fa-times" onclick="closeCard()" style="cursor:pointer"></i>
-        </div>
-        <div class="card-body">
-            <div class="mission-tag" id="mission-type">☕ 文青限定</div>
-            <div class="mission-title" id="mission-text">去尋找巷弄裡的老宅咖啡</div>
-            <div class="mission-desc" id="mission-detail">
-                目標距離你 <span id="mission-dist">1.2</span> km。<br>
-                抵達後，請點一杯沒喝過的飲料，並發一則限時動態。
+                <button class="main-btn" onclick="findRealPlace()">
+                    <i class="fas fa-search-location"></i> 搜尋真實地點並指派任務
+                </button>
             </div>
-        </div>
-        <div class="card-footer">
-            <button class="btn-action btn-outline" onclick="generateMission()">再抽一次</button>
-            <a id="gmap-link" href="#" target="_blank" class="btn-action btn-primary">
-                <i class="fas fa-map-marker-alt" style="margin-right:5px"></i> 導航出發
-            </a>
+
+            <div id="result-view">
+                <div class="mission-header">
+                    <div class="mission-badge" id="res-type">☕ 咖啡廳</div>
+                    <div class="mission-dist" id="res-dist">距離 1.2 km</div>
+                </div>
+                
+                <div class="mission-title" id="res-name">路易莎咖啡 Louisa Coffee</div>
+                <div class="mission-desc" id="res-task">
+                    任務：點一杯「小農雪點拿鐵」，然後找個角落把手機關靜音 30 分鐘。
+                </div>
+
+                <div class="action-row">
+                    <button class="btn-retry" onclick="resetView()">
+                        <i class="fas fa-redo"></i> 重抽
+                    </button>
+                    <a id="res-gmap" href="#" target="_blank" class="btn-gmap">
+                        <i class="fas fa-location-arrow"></i> Google 導航
+                    </a>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // --- 1. 資料庫：任務模版 (混合生成) ---
-        // {types}: 將會被替換成具體的地點類型
-        // {action}: 具體的指令
-        const missions = [
-            { type: "美食大冒險", text: "去 {dist}km 附近的夜市/小吃攤", detail: "隨機找一家「排隊超過 5 人」但你沒吃過的攤位，挑戰老闆的招牌菜！" },
-            { type: "老派浪漫", text: "尋找 {dist}km 內的老宅咖啡", detail: "帶上一本書或筆記本，在那裡待滿 1 小時，不准滑手機。" },
-            { type: "極限放空", text: "前往 {dist}km 處的公園/水岸", detail: "找張長椅坐下，發呆 20 分鐘，觀察 3 個路人的穿搭。" },
-            { type: "城市探險", text: "探索 {dist}km 外的一個陌生街區", detail: "隨意走進一條沒走過的巷子，直到看見一隻貓或便利商店為止。" },
-            { type: "文藝青年", text: "去 {dist}km 附近的書店/圖書館", detail: "閉著眼睛隨機抽一本書，閱讀第 20 頁的第一句話。" },
-            { type: "微醺時刻", text: "尋找 {dist}km 內的居酒屋/熱炒", detail: "點一杯沒喝過的飲料，並拍下乾杯的照片。" },
-            { type: "觀光客模式", text: "去 {dist}km 附近評價最高的景點", detail: "假裝自己是第一次來這裡的觀光客，並找路人幫你拍張照。" },
-            { type: "便利商店冒險", text: "去 {dist}km 外的便利商店", detail: "買一樣你從來沒買過的零食或飲料，坐在店內把它吃完。" }
-        ];
-
-        // --- 2. 系統變數 ---
         let map, userMarker, targetMarker, routeLine, rangeCircle;
         let currentLat, currentLng;
-        let selectedRadius = 15.0; // 預設機車 15km
+        let selectedRadius = 5000; // 公尺
         let currentMode = 'scooter';
 
         // 初始化
@@ -216,64 +212,51 @@
         };
 
         function initMap() {
-            map = L.map('map', {zoomControl: false}).setView([23.5, 121.0], 7);
+            map = L.map('map', {zoomControl: false}).setView([25.0478, 121.5170], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: ''
             }).addTo(map);
         }
 
-        // --- 3. 核心功能：定位 ---
+        // --- 1. 定位功能 ---
         function getCurrentLocation() {
-            const loading = document.getElementById('loading');
-            loading.style.opacity = 1;
-            loading.style.display = 'flex';
-
+            showLoading("正在定位中...");
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        currentLat = position.coords.latitude;
-                        currentLng = position.coords.longitude;
-                        
+                    (pos) => {
+                        currentLat = pos.coords.latitude;
+                        currentLng = pos.coords.longitude;
                         updateUserLocation(currentLat, currentLng);
-                        
-                        // 隱藏 Loading
-                        loading.style.opacity = 0;
-                        setTimeout(() => { loading.style.display = 'none'; }, 500);
+                        hideLoading();
                     },
-                    (error) => {
-                        alert("無法獲取位置，將預設為台北車站。請確保已開啟定位權限。");
-                        currentLat = 25.0478;
-                        currentLng = 121.5170;
+                    (err) => {
+                        alert("定位失敗，預設為台北車站");
+                        currentLat = 25.0478; currentLng = 121.5170;
                         updateUserLocation(currentLat, currentLng);
-                        loading.style.display = 'none';
+                        hideLoading();
                     },
                     { enableHighAccuracy: true }
                 );
             } else {
-                alert("您的瀏覽器不支援定位功能。");
-                loading.style.display = 'none';
+                hideLoading();
+                alert("瀏覽器不支援定位");
             }
         }
 
         function updateUserLocation(lat, lng) {
             if (userMarker) map.removeLayer(userMarker);
-            
-            // 使用藍色圓點代表使用者
             userMarker = L.circleMarker([lat, lng], {
-                radius: 8, fillColor: '#4285f4', color: '#fff', weight: 2, fillOpacity: 1
+                radius: 8, fillColor: '#4285f4', color: '#fff', weight: 3, fillOpacity: 1
             }).addTo(map);
-
+            map.setView([lat, lng], 15);
             updateRangeCircle();
-            map.setView([lat, lng], 13);
         }
 
-        // --- 4. 交通工具切換 ---
-        window.selectMode = function(mode, radius) {
-            // 更新 UI
+        // --- 2. 切換半徑 ---
+        window.selectMode = function(mode, radiusMeters) {
             document.querySelectorAll('.transport-btn').forEach(btn => btn.classList.remove('active'));
             event.currentTarget.classList.add('active');
-            
-            selectedRadius = radius;
+            selectedRadius = radiusMeters;
             currentMode = mode;
             updateRangeCircle();
         }
@@ -281,103 +264,171 @@
         function updateRangeCircle() {
             if (!currentLat) return;
             if (rangeCircle) map.removeLayer(rangeCircle);
-            
             rangeCircle = L.circle([currentLat, currentLng], {
-                radius: selectedRadius * 1000,
+                radius: selectedRadius,
                 color: '#4285f4', fillColor: '#4285f4', fillOpacity: 0.05, weight: 1, dashArray: '5, 5'
             }).addTo(map);
-            
-            // 自動縮放視野以包含圓圈
             map.fitBounds(rangeCircle.getBounds());
         }
 
-        // --- 5. 任務生成邏輯 ---
-        window.generateMission = function() {
-            if (!currentLat) { alert("請先完成定位！"); return; }
+        // --- 3. 核心：搜尋真實地點 (Overpass API) ---
+        async function findRealPlace() {
+            if (!currentLat) { alert("請先定位"); return; }
+            
+            showLoading("正在搜尋附近的真實好去處...");
+            
+            // 建立 Overpass Query
+            // 我們搜尋：咖啡廳、便利商店、公園、圖書館、速食店
+            const query = `
+                [out:json][timeout:10];
+                (
+                  node["amenity"~"cafe|fast_food|library|restaurant"](around:${selectedRadius},${currentLat},${currentLng});
+                  node["leisure"="park"](around:${selectedRadius},${currentLat},${currentLng});
+                  node["shop"="convenience"](around:${selectedRadius},${currentLat},${currentLng});
+                );
+                out 20;
+            `;
+            // 注意：out 20 表示隨機取前20個，避免資料量過大。
 
-            // 1. 隨機計算距離與角度 (在半徑內，但不要太近)
-            const minRatio = 0.3; // 至少要在半徑的 30% 以外 (避免走路 10 公尺就到了)
-            const r = (selectedRadius * minRatio) + (Math.random() * selectedRadius * (1 - minRatio));
-            const theta = Math.random() * 2 * Math.PI;
-            
-            // 簡易經緯度推算 (不需極高精準度)
-            const dx = r * Math.cos(theta); // km
-            const dy = r * Math.sin(theta); // km
-            
-            // 1 deg lat ~= 110.574 km
-            // 1 deg lng ~= 111.320 * cos(lat) km
-            const deltaLat = dy / 110.574;
-            const deltaLng = dx / (111.320 * Math.cos(currentLat * Math.PI / 180));
-            
-            const targetLat = currentLat + deltaLat;
-            const targetLng = currentLng + deltaLng;
+            const url = "https://overpass-api.de/api/interpreter?data=" + encodeURIComponent(query);
 
-            // 2. 隨機挑選任務文本
-            const missionTemplate = missions[Math.floor(Math.random() * missions.length)];
-            
-            // 3. 顯示結果
-            showResult(targetLat, targetLng, r.toFixed(1), missionTemplate);
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!data.elements || data.elements.length === 0) {
+                    alert("哎呀！這附近有點荒涼，找不到適合的點。試試看擴大範圍？");
+                    hideLoading();
+                    return;
+                }
+
+                // 隨機選一個地點
+                const place = data.elements[Math.floor(Math.random() * data.elements.length)];
+                
+                // 生成任務
+                generateMissionFromPlace(place);
+                
+            } catch (error) {
+                console.error(error);
+                alert("連線發生問題，請稍後再試。");
+                hideLoading();
+            }
         }
 
-        function showResult(lat, lng, dist, template) {
-            // 清除舊標記
+        // --- 4. 任務生成邏輯 (Brand Logic) ---
+        function generateMissionFromPlace(place) {
+            const tags = place.tags || {};
+            const name = tags.name || "未知的地點";
+            const lat = place.lat;
+            const lon = place.lon;
+            
+            let type = "📍 神秘地點";
+            let task = "去這裡看看有什麼新發現！";
+
+            // 簡單的關鍵字匹配 (Brand Logic)
+            if (tags.leisure === 'park' || name.includes("公園")) {
+                type = "🌳 公園放空";
+                task = "找一張長椅坐下，發呆 10 分鐘，不准滑手機，觀察經過的 3 隻狗。";
+            } else if (tags.amenity === 'library' || name.includes("圖書館")) {
+                type = "📚 氣質培養";
+                task = "進去隨機抽一本書，閱讀第 20 頁的第一句話。";
+            } else if (tags.shop === 'convenience' || name.includes("7-Eleven") || name.includes("全家") || name.includes("萊爾富")) {
+                type = "🏪 超商冒險";
+                if (name.includes("7-Eleven")) task = "進去買一杯 City Cafe，或是找找看有沒有新的聯名零食。";
+                else if (name.includes("全家")) task = "進去買一支霜淇淋，不管今天天氣如何！";
+                else task = "進去買一瓶你從沒喝過的飲料。";
+            } else if (name.includes("路易莎") || name.includes("Louisa")) {
+                type = "☕ 路易莎任務";
+                task = "點一杯「莊園級拿鐵」或是「荔枝紅茶」，並佔領一個插座位置。";
+            } else if (name.includes("星巴克") || name.includes("Starbucks")) {
+                type = "☕ 星巴克任務";
+                task = "點一杯「本日精選」或請店員推薦特調，坐在窗邊看人。";
+            } else if (name.includes("麥當勞")) {
+                type = "🍔 麥當勞任務";
+                task = "點一份你平常不會點的漢堡，或者只吃蛋捲冰淇淋。";
+            } else if (tags.amenity === 'cafe') {
+                type = "☕ 尋找咖啡";
+                task = `前往「${name}」，點一杯招牌咖啡，並拍張照上傳限動。`;
+            } else if (tags.amenity === 'restaurant' || tags.amenity === 'fast_food') {
+                type = "🍽️ 美食探險";
+                task = `前往「${name}」，看看菜單上看起來最厲害的那道菜是什麼。`;
+            } else {
+                // 預設
+                type = "🚩 探索未知";
+                task = `前往「${name}」，看看那裡長什麼樣子，拍張照留念。`;
+            }
+
+            // 更新 UI
+            showResult(name, type, task, lat, lon);
+        }
+
+        function showResult(name, type, task, lat, lon) {
+            // 標記地圖
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
 
-            // 1. 在地圖上標示
             const redIcon = L.icon({
                 iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
                 shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
                 iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
             });
-            targetMarker = L.marker([lat, lng], {icon: redIcon}).addTo(map);
+            targetMarker = L.marker([lat, lon], {icon: redIcon}).addTo(map);
             
-            // 畫線
-            routeLine = L.polyline([[currentLat, currentLng], [lat, lng]], {
-                color: '#ff6b6b', weight: 4, dashArray: '10, 10', opacity: 0.8
+            routeLine = L.polyline([[currentLat, currentLng], [lat, lon]], {
+                color: '#4285f4', weight: 4, dashArray: '10, 10', opacity: 0.8
             }).addTo(map);
-
-            // 縮放地圖
-            map.fitBounds(routeLine.getBounds().pad(0.2));
-
-            // 2. 填寫卡片內容
-            const card = document.getElementById('mission-card');
-            document.getElementById('mission-id').innerText = Math.floor(Math.random() * 900 + 100);
-            document.getElementById('mission-type').innerText = "📌 " + template.type;
             
-            // 替換文本變數
-            document.getElementById('mission-text').innerText = template.text.replace('{dist}', dist);
-            document.getElementById('mission-detail').innerHTML = template.detail + `<br><br>目標位置：距離約 ${dist} 公里`;
+            map.fitBounds(routeLine.getBounds().pad(0.3));
 
-            // 設定 Google Maps 連結 (這裡使用 "search" 模式，搜尋附近的相關地點)
-            // 技巧：我們不導航到精確的 lat/lng (因為那可能是路邊)，而是導航到那個座標，並帶入關鍵字搜尋
-            // 例如：搜尋該座標附近的 "Coffee"
-            
-            let keyword = "";
-            if (template.type.includes("咖啡")) keyword = "咖啡";
-            else if (template.type.includes("美食") || template.type.includes("微醺")) keyword = "餐廳";
-            else if (template.type.includes("書店")) keyword = "書店";
-            else if (template.type.includes("便利商店")) keyword = "便利商店";
-            else keyword = "景點";
+            // 計算距離
+            const dist = (map.distance([currentLat, currentLng], [lat, lon]) / 1000).toFixed(1);
 
-            // 連結格式：使用 Google Maps 搜尋該座標附近的關鍵字
-            // 如果是大眾運輸，travelmode=transit
+            // 更新文字
+            document.getElementById('res-type').innerText = type;
+            document.getElementById('res-dist').innerText = `距離 ${dist} km`;
+            document.getElementById('res-name').innerText = name;
+            document.getElementById('res-task').innerText = task;
+
+            // Google Maps Link
             let travelMode = 'driving';
-            if (currentMode === 'walk') travelMode = 'walking';
-            if (currentMode === 'transit') travelMode = 'transit';
-            if (currentMode === 'bike') travelMode = 'bicycling';
-
-            // 這裡我們直接導航到座標，讓使用者到了再找店，比較符合「探險」精神
-            const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=${travelMode}`;
+            if(currentMode === 'walk') travelMode = 'walking';
+            if(currentMode === 'bike') travelMode = 'bicycling';
+            if(currentMode === 'transit') travelMode = 'transit';
             
-            document.getElementById('gmap-link').href = gmapUrl;
+            // 這裡使用 `api=1&query=` 確保精準搜尋該店名與座標
+            const gmapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${lat},${lon}`;
+            // 或是導航模式: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=${travelMode}`;
+            const dirUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=${travelMode}`;
+            
+            document.getElementById('res-gmap').href = dirUrl;
 
-            // 顯示卡片
-            card.classList.add('show');
+            // 切換視圖
+            document.getElementById('setup-view').style.display = 'none';
+            document.getElementById('result-view').style.display = 'block';
+            
+            hideLoading();
         }
 
-        window.closeCard = function() {
-            document.getElementById('mission-card').classList.remove('show');
+        function resetView() {
+            document.getElementById('result-view').style.display = 'none';
+            document.getElementById('setup-view').style.display = 'block';
+            
+            if(targetMarker) map.removeLayer(targetMarker);
+            if(routeLine) map.removeLayer(routeLine);
+            map.setView([currentLat, currentLng], 14);
+        }
+
+        // --- UI 控制 ---
+        function toggleSheet() {
+            document.getElementById('bottom-sheet').classList.toggle('minimized');
+        }
+
+        function showLoading(text) {
+            document.getElementById('loading-text').innerText = text;
+            document.getElementById('loading').style.display = 'flex';
+        }
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
         }
     </script>
 </body>
