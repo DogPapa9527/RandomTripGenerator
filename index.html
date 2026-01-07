@@ -3,57 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週末抗懶散 V3.0</title>
+    <title>週末抗懶散 V3.1 (精準導航)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { margin: 0; padding: 0; font-family: "SF Pro TC", "Microsoft JhengHei", sans-serif; background: #f0f2f5; overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
-        /* 頂部標題 */
         .top-bar {
-            position: absolute; top: 0; left: 0; width: 100%;
-            padding: 15px 20px;
+            position: absolute; top: 0; left: 0; width: 100%; padding: 15px 20px;
             background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%);
-            z-index: 1000; pointer-events: none;
-            text-align: center;
+            z-index: 1000; pointer-events: none; text-align: center;
         }
         .app-title { font-size: 1.1rem; font-weight: 900; color: #333; text-shadow: 0 2px 4px rgba(255,255,255,0.8); letter-spacing: 1px; }
 
-        /* --- 底部面板 --- */
         .bottom-panel {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             width: 90%; max-width: 400px;
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 24px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            z-index: 2000; padding: 20px; box-sizing: border-box;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            background: rgba(255, 255, 255, 0.98); border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 2000; padding: 20px; box-sizing: border-box;
+            backdrop-filter: blur(10px); transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
 
-        /* 模式切換 Switch */
         .mode-switch-container {
             background: #f0f2f5; border-radius: 16px; padding: 5px;
             display: flex; margin-bottom: 20px; position: relative;
         }
         .mode-option {
-            flex: 1; text-align: center; padding: 12px;
-            font-size: 0.95rem; font-weight: bold; color: #888;
+            flex: 1; text-align: center; padding: 12px; font-size: 0.95rem; font-weight: bold; color: #888;
             cursor: pointer; z-index: 2; transition: color 0.3s;
         }
         .mode-option.active { color: #333; }
-        
-        /* 滑動塊動畫 */
         .mode-slider {
             position: absolute; top: 5px; left: 5px; width: calc(50% - 5px); height: calc(100% - 10px);
-            background: white; border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-            z-index: 1;
+            background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); z-index: 1;
         }
 
-        /* 主按鈕 */
         .main-btn {
             width: 100%; padding: 18px; border: none; border-radius: 18px;
             background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
@@ -63,20 +49,15 @@
             transition: transform 0.1s;
         }
         .main-btn:active { transform: scale(0.98); }
-        /* 期間限定模式的按鈕顏色 */
         .main-btn.event-mode {
             background: linear-gradient(135deg, #8e44ad 0%, #ff7675 100%);
             box-shadow: 0 8px 20px rgba(142, 68, 173, 0.3);
         }
 
-        /* 結果顯示區 (預設隱藏) */
         #result-area { display: none; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
         
         .res-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-        .res-tag { 
-            background: #eef4ff; color: #3498db; padding: 5px 10px; 
-            border-radius: 8px; font-size: 0.8rem; font-weight: bold; 
-        }
+        .res-tag { background: #eef4ff; color: #3498db; padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; }
         .res-tag.event { background: #f3e5f5; color: #8e44ad; }
         
         .res-title { font-size: 1.3rem; font-weight: 800; color: #2c3e50; margin-bottom: 8px; line-height: 1.3; }
@@ -90,17 +71,14 @@
         .btn-link {
             flex: 1; background: #3498db; color: white; text-decoration: none;
             padding: 12px; border-radius: 12px; font-weight: bold; text-align: center;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            font-size: 0.95rem;
+            display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.95rem;
         }
         .btn-link.event { background: #8e44ad; }
         .btn-retry {
             width: 45px; background: #f0f0f0; color: #555; border: none;
-            border-radius: 12px; font-weight: bold; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
+            border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
 
-        /* 定位按鈕 */
         .locate-btn {
             position: absolute; bottom: 20px; right: 20px;
             width: 45px; height: 45px; background: white; border-radius: 50%;
@@ -108,10 +86,8 @@
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 1500; color: #333;
         }
-        /* 當面板打開時，定位按鈕往上移 */
         .bottom-panel.expanded ~ .locate-btn { bottom: 320px; transition: bottom 0.3s; }
 
-        /* Loading */
         .loading-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%;
             background: rgba(255,255,255,0.8); z-index: 3000;
@@ -130,7 +106,7 @@
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散 V3.0</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V3.1</div>
     </div>
 
     <div id="map"></div>
@@ -156,7 +132,7 @@
                 <i class="fas fa-dice"></i> 尋找獨立好店
             </button>
             <p style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
-                * 系統將自動過濾 90% 的連鎖店，帶你發現新地點
+                * 已過濾 90% 連鎖店，導航將採精準座標定位
             </p>
         </div>
 
@@ -174,7 +150,7 @@
                     <i class="fas fa-redo"></i>
                 </button>
                 <a id="res-link" href="#" target="_blank" class="btn-link">
-                    <i class="fas fa-location-arrow"></i> 導航出發
+                    <i class="fas fa-location-arrow"></i> 導航到此位置
                 </a>
             </div>
         </div>
@@ -184,9 +160,9 @@
     <script>
         let map, userMarker, targetMarker, routeLine, rangeCircle;
         let currentLat, currentLng;
-        let currentMode = 'normal'; // 'normal' or 'event'
+        let currentMode = 'normal';
         
-        // 黑名單 (常見連鎖店) - 用於過濾
+        // 黑名單 (常見連鎖店)
         const chainBlockList = [
             "7-Eleven", "7-ELEVEN", "FamilyMart", "全家", "Hi-Life", "萊爾富", "OK Mart", "OK超商",
             "Starbucks", "星巴克", "Louisa", "路易莎", "Cama", "85度C", "85°C",
@@ -202,9 +178,7 @@
 
         function initMap() {
             map = L.map('map', {zoomControl: false}).setView([25.0478, 121.5170], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: ''
-            }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: ''}).addTo(map);
         }
 
         function getCurrentLocation() {
@@ -239,21 +213,16 @@
             map.setView([lat, lng], 14);
         }
 
-        // --- 模式切換 ---
         window.switchMode = function(mode, offsetPercent) {
             currentMode = mode;
             document.getElementById('slider').style.transform = `translateX(${offsetPercent}%)`;
-            
             const opts = document.querySelectorAll('.mode-option');
             opts.forEach(o => o.classList.remove('active'));
             if(mode === 'normal') opts[0].classList.add('active');
             else opts[1].classList.add('active');
 
-            // 更新按鈕樣式
             const btn = document.getElementById('main-btn');
             const result = document.getElementById('result-area');
-            
-            // 如果已經有結果，先收起來，讓使用者重新按
             result.style.display = 'none';
             document.getElementById('start-area').style.display = 'block';
 
@@ -266,20 +235,16 @@
             }
         }
 
-        // --- 核心任務邏輯 ---
         async function startMission() {
             if (!currentLat) { alert("請先定位"); return; }
             
-            // 隨機半徑：1500m ~ 8000m (強迫移動)
+            // 隨機半徑：1500m ~ 8000m
             const radius = Math.floor(Math.random() * (8000 - 1500) + 1500);
             
             showLoading(currentMode === 'normal' ? "正在過濾連鎖店..." : "搜尋展覽與活動...");
 
             let query = "";
-            
             if (currentMode === 'normal') {
-                // 日常探險：找咖啡廳、餐廳、酒吧、特色商店
-                // 排除便利商店 (shop=convenience)
                 query = `
                     [out:json][timeout:15];
                     (
@@ -289,7 +254,6 @@
                     out 30;
                 `;
             } else {
-                // 期間限定：找博物館、劇院、電影院、藝術中心
                 query = `
                     [out:json][timeout:15];
                     (
@@ -312,26 +276,17 @@
                     return;
                 }
 
-                // --- 篩選邏輯 ---
                 let candidates = data.elements;
-                
                 if (currentMode === 'normal') {
-                    // 過濾連鎖店 (保留 5% 機率不看黑名單，當作安慰獎)
                     const strictMode = Math.random() > 0.05; 
-                    
                     if (strictMode) {
                         candidates = candidates.filter(place => {
                             const name = place.tags.name || "";
-                            // 檢查是否在黑名單中
                             return !chainBlockList.some(chain => name.includes(chain));
                         });
                     }
                 }
-
-                if (candidates.length === 0) {
-                    // 如果過濾完沒東西了，就隨便抓一個原本的
-                    candidates = data.elements;
-                }
+                if (candidates.length === 0) candidates = data.elements;
 
                 const place = candidates[Math.floor(Math.random() * candidates.length)];
                 generateResult(place);
@@ -352,12 +307,14 @@
 
             let type = "🚩 探險";
             let desc = "";
-            let linkText = "Google 導航";
-            let gmapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&query_place_id=${lat},${lon}`; // 預設導航
+            let linkText = "導航到此位置";
             
-            // --- 文案生成邏輯 ---
+            // --- 修正：使用座標導航，避免名稱模糊導致跳轉到別處 ---
+            // destination=lat,lng 
+            // 這樣 Google Maps 會直接在該座標插旗，不會再去搜尋店名
+            let gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+            
             if (currentMode === 'normal') {
-                // 日常模式
                 if (tags.amenity === 'cafe') {
                     type = "☕ 獨立咖啡";
                     desc = `前往「${name}」，點一杯店裡的特調，並觀察店員的選歌品味。`;
@@ -366,33 +323,22 @@
                     desc = `前往「${name}」，點一杯沒喝過的酒，慶祝今天還活著。`;
                 } else if (tags.shop === 'books') {
                     type = "📚 獨立書店";
-                    desc = `去「${name}」逛逛，買一本封面吸引你的書，不要看書評。`;
-                } else if (tags.amenity === 'restaurant') {
-                    type = "🍽️ 美食挖掘";
-                    desc = `今天去吃「${name}」，試試看網路上評價兩極的那道菜。`;
+                    desc = `去「${name}」逛逛，買一本封面吸引你的書。`;
                 } else {
-                    type = "🚶 城市散策";
-                    desc = `目標是「${name}」，不一定要進去，但在門口拍張照證明你來過。`;
+                    type = "🍽️ 在地探索";
+                    desc = `目標是「${name}」，去看看這家店有什麼特別的地方。`;
                 }
             } else {
-                // 期間限定模式
-                // 這裡的策略是：引導使用者去那個"場地"，並自己查現在有什麼
                 if (tags.amenity === 'cinema') {
                     type = "🎬 電影時光";
                     desc = `去「${name}」看一場電影。不挑片，直接看最近開演的那一場！`;
-                    linkText = "查看場次";
-                } else if (tags.tourism === 'museum' || tags.tourism === 'gallery' || tags.amenity === 'arts_centre') {
-                    type = "🎨 藝文展覽";
-                    desc = `前往「${name}」，看看現在有什麼展覽。如果是售票展，就買票進去！`;
-                    linkText = "查看目前展覽";
                 } else {
-                    type = "🎭 展演活動";
-                    desc = `去「${name}」走走，看看今天有沒有什麼市集或表演活動。`;
+                    type = "🎨 藝文展覽";
+                    desc = `前往「${name}」，看看現在有什麼展覽或活動。`;
                 }
             }
 
-            // --- 更新 UI ---
-            // 標記地圖
+            // 更新 UI
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
             if (rangeCircle) map.removeLayer(rangeCircle);
@@ -408,14 +354,12 @@
             });
             targetMarker = L.marker([lat, lon], {icon: icon}).addTo(map);
 
-            // 畫線
             const lineColor = currentMode === 'normal' ? '#3498db' : '#8e44ad';
             routeLine = L.polyline([[currentLat, currentLng], [lat, lon]], {
                 color: lineColor, weight: 4, dashArray: '10, 10', opacity: 0.8
             }).addTo(map);
             map.fitBounds(routeLine.getBounds().pad(0.3));
 
-            // 更新面板
             document.getElementById('res-tag').innerText = type;
             document.getElementById('res-tag').className = currentMode === 'normal' ? 'res-tag' : 'res-tag event';
             document.getElementById('res-dist').innerText = `距離 ${dist} km`;
@@ -428,10 +372,9 @@
             btnLink.href = gmapUrl;
             btnLink.className = currentMode === 'normal' ? 'btn-link' : 'btn-link event';
 
-            // 展開面板
             document.getElementById('start-area').style.display = 'none';
             document.getElementById('result-area').style.display = 'block';
-            document.getElementById('panel').classList.add('expanded'); // 標記展開狀態以移動定位鈕
+            document.getElementById('panel').classList.add('expanded');
 
             hideLoading();
         }
