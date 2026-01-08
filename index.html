@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週末抗懶散 V8.0 (絕對不死版)</title>
+    <title>週末抗懶散 V9.0 (旗艦版)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -70,11 +70,6 @@
         .main-btn.event-mode {
             background: linear-gradient(135deg, #8e44ad 0%, #ff7675 100%);
             box-shadow: 0 8px 20px rgba(142, 68, 173, 0.3);
-        }
-        /* 保底模式按鈕顏色 */
-        .main-btn.fallback-mode {
-            background: linear-gradient(135deg, #f0932b 0%, #ffbe76 100%);
-            box-shadow: 0 8px 20px rgba(240, 147, 43, 0.3);
         }
 
         #result-area { display: none; margin-top: 10px; }
@@ -143,7 +138,7 @@
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散 V8.0</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V9.0</div>
     </div>
 
     <div id="map"></div>
@@ -177,7 +172,7 @@
                         <i class="fas fa-random"></i> 隨機生成行程
                     </button>
                     <p id="hint-text" style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
-                        * 系統將搜尋附近 5~20km 內的有趣地點
+                        * 搜尋範圍 1km ~ 20km，包含 16 種探險主題
                     </p>
                 </div>
 
@@ -207,19 +202,35 @@
         let currentLat, currentLng;
         let currentMode = 'normal';
 
-        // 資料來源：活動主題 (Keywords for Nominatim)
-        // 使用 "q" 參數進行模糊搜尋
+        // --- V9.0 旗艦級任務題庫 ---
+        // keyword: 用於 Nominatim 搜尋
         const activityThemes = [
-            { id: "university", name: "🎓 大學漫步", keyword: "university", tasks: ["去校園散步，找找便宜學餐。", "在草皮上發呆，觀察學生。"] },
-            { id: "library", name: "📚 靈魂充電", keyword: "library", tasks: ["隨機抽一本雜誌，讀 20 分鐘。", "找一本你出生那年出版的書。"] },
-            { id: "temple", name: "⛩️ 沉澱心靈", keyword: "temple", tasks: ["觀察建築的雕刻細節。", "找個安靜角落，關手機 5 分鐘。"] },
-            { id: "park", name: "🌲 自然呼吸", keyword: "park", tasks: ["深呼吸三次。", "找張長椅發呆 10 分鐘。"] },
-            { id: "cafe", name: "☕ 獨立咖啡", keyword: "cafe", tasks: ["點一杯沒喝過的特調。", "帶筆記本寫下這週心情。"] },
-            { id: "market", name: "🥬 傳統市場", keyword: "market", tasks: ["感受在地活力。", "買一樣當季水果。"] }
+            // 城市人文
+            { id: "university", name: "🎓 大學漫步", keyword: "university", tasks: ["去校園裡散步，找找便宜學餐。", "在草皮上發呆，觀察學生。", "去學校合作社買瓶飲料。", "找到校園裡最老的一棵樹。"] },
+            { id: "library", name: "📚 靈魂充電", keyword: "library", tasks: ["進去隨機抽一本雜誌，讀 20 分鐘。", "走到旅遊書區，決定下次旅行的國家。", "找一本你出生那年出版的書。", "不帶手機，純粹享受安靜。"] },
+            { id: "temple", name: "⛩️ 眾神保佑", keyword: "temple", tasks: ["進去感受建築的寧靜。", "觀察廟宇/教堂裡的雕刻細節。", "在附近找個地方坐著，聽聽鐘聲或誦經聲。", "在心裡默唸這週發生的一件好事。"] },
+            { id: "market", name: "🏮 懷舊市場", keyword: "marketplace", tasks: ["走進去感受在地的活力。", "買一樣當季水果。", "找找看有沒有沒吃過的傳統點心。", "聽聽攤販的叫賣聲。"] },
+            { id: "cafe", name: "☕ 獨立咖啡", keyword: "cafe", tasks: ["點一杯沒喝過的特調。", "不滑手機，觀察店員沖咖啡的動作。", "帶一本筆記本，寫下這週的心情。", "坐在窗邊觀察路人。"] },
+            
+            // 身體與感官
+            { id: "park", name: "🌲 自然森呼吸", keyword: "park", tasks: ["找到這個地方的最高點，深呼吸三次。", "找張長椅發呆 10 分鐘。", "脫下鞋子(如果可以)，赤腳踩踩草地。", "拍一張逆光的樹葉照片。"] },
+            { id: "hot_spring", name: "♨️ 城市秘湯", keyword: "hot spring", tasks: ["去泡個腳，放鬆一下。", "找找看有沒有便宜的公共浴池。", "在溫泉區買顆溫泉蛋。"] },
+            { id: "sports", name: "🏃 動起來", keyword: "sports_centre", tasks: ["去田徑場走兩圈。", "觀察別人都在做什麼運動。", "去量個體重體脂(如果有機器)。"] },
+            
+            // 挖寶與冒險
+            { id: "bakery", name: "🍰 巷弄甜點", keyword: "bakery", tasks: ["買一個看起來最厲害的麵包。", "找找看有沒有剛出爐的點心。", "買一塊蛋糕犒賞自己。"] },
+            { id: "bookstore", name: "📖 書香尋寶", keyword: "bookstore", tasks: ["去找一本絕版書或二手書。", "買一本封面吸引你的書。", "翻閱一本攝影集。"] },
+            { id: "florist", name: "🌸 花鳥市場", keyword: "florist", tasks: ["買一盆不需要太費心照顧的小植物。", "進去聞聞花的香味。", "認識三種你叫不出名字的花。"] },
+            
+            // 特殊與小眾
+            { id: "viewpoint", name: "🎑 觀景高地", keyword: "viewpoint", tasks: ["從不同角度看你住的城市。", "拍一張全景照片。", "大喊一聲(如果沒人的話)。"] },
+            { id: "historic", name: "🏗️ 老屋再生", keyword: "historic", tasks: ["去摸摸看老建築的牆壁。", "想像一下 50 年前這裡的人在做什麼。", "拍一張黑白風格的照片。"] },
+            { id: "station", name: "🚂 鐵道迷蹤", keyword: "railway station", tasks: ["去一個沒聽過的小車站晃晃。", "觀察火車進站的瞬間。", "買一張最便宜的票留作紀念。"] },
+            { id: "restaurant", name: "🍽️ 在地美食", keyword: "restaurant", tasks: ["點一道你平常不會吃的菜。", "看看別桌都點什麼。", "找一家評價很高但沒吃過的店。"] }
         ];
 
         // 連鎖店黑名單
-        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart", "Mos Burger"];
+        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart", "Mos Burger", "Subway", "85C", "Cama"];
 
         window.onload = function() {
             initMap();
@@ -288,7 +299,7 @@
             if (mode === 'normal') {
                 btn.innerHTML = '<i class="fas fa-random"></i> 隨機生成行程';
                 btn.className = 'main-btn';
-                hint.innerText = "* 包含：大學、圖書館、步道、溫泉、市場、咖啡廳";
+                hint.innerText = "* 範圍 1~20km，包含 16 種探險類別";
             } else {
                 btn.innerHTML = '<i class="fas fa-search"></i> 搜尋活動場館';
                 btn.className = 'main-btn event-mode';
@@ -300,28 +311,33 @@
             if (!currentLat) { alert("請先定位"); return; }
             expandPanel();
             
-            // 隨機半徑: 2km ~ 15km
-            const radius = Math.floor(Math.random() * (15000 - 2000) + 2000);
+            // 隨機半徑: 1km ~ 20km (不放棄家裡附近，也不排斥遠方)
+            const radius = Math.floor(Math.random() * (20000 - 1000) + 1000);
             
             if (currentMode === 'normal') {
-                showLoading("正在搜尋有趣角落...");
+                showLoading("正在掃描周邊...");
+                // 隨機抽選主題
                 const theme = activityThemes[Math.floor(Math.random() * activityThemes.length)];
                 fetchNominatim(theme, radius);
             } else {
                 showLoading("正在搜尋展覽場館...");
-                // 展覽模式關鍵字
+                // 展覽模式
                 const theme = { 
                     name: "🏛️ 藝文場館", 
-                    keyword: "museum", // 先搜博物館，如果沒有再試試別的
+                    keyword: "museum", // 預設先找博物館
                     task: "前往此處，看看海報牆或售票口最近有什麼演出或展覽。"
                 };
+                // 展覽模式有時候博物館找不到，可以嘗試 Arts Centre
+                // 這裡做個簡單隨機
+                if (Math.random() > 0.5) theme.keyword = "arts_centre";
+                
                 fetchNominatim(theme, radius);
             }
         }
 
-        // --- 核心：改用 Nominatim API (更穩定) ---
+        // --- Nominatim API ---
         async function fetchNominatim(theme, radius) {
-            // 計算 Bounding Box (大約)
+            // 計算 Bounding Box
             const degLat = radius / 111000;
             const degLng = radius / (111000 * Math.cos(currentLat * Math.PI / 180));
             
@@ -332,12 +348,9 @@
                 currentLat - degLat  // bottom
             ].join(',');
 
-            // Nominatim Search Query
-            // format=json, limit=20, bounded=1 (限制在範圍內), addressdetails=1 (為了抓行政區)
-            const url = `https://nominatim.openstreetmap.org/search?q=${theme.keyword}&format=json&viewbox=${viewbox}&bounded=1&limit=25&addressdetails=1`;
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(theme.keyword)}&format=json&viewbox=${viewbox}&bounded=1&limit=20&addressdetails=1`;
             
             try {
-                // 加個 Timeout 防止卡死
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 8000);
                 
@@ -349,25 +362,24 @@
 
                 let candidates = data;
 
-                // 過濾連鎖店 (僅日常模式)
-                if (currentMode === 'normal' && theme.id === 'cafe') {
+                // 過濾連鎖店
+                if (currentMode === 'normal') {
                     candidates = candidates.filter(place => {
                         const name = (place.name || "").toLowerCase();
                         return !chainBlockList.some(chain => name.includes(chain.toLowerCase()));
                     });
                 }
 
-                // --- 找不到資料的 Fallback 機制 ---
+                // 找不到資料 -> 保底
                 if (candidates.length === 0) {
-                    console.warn("Nominatim 無結果，啟動保底模式");
-                    
-                    // 如果原本是在找比較稀有的(大學/展覽)，改找公園
+                    console.warn(`類別 ${theme.name} 無結果，切換保底`);
                     if (theme.id !== 'park') {
+                        // 找不到大學/溫泉/古蹟 -> 改找公園 (一定有)
                         const fallbackTheme = activityThemes.find(t => t.id === 'park');
-                        fetchNominatim(fallbackTheme, 10000); // 找 10km 內的公園
+                        // 遞迴呼叫，但把半徑設為 5km (確保找得到)
+                        fetchNominatim(fallbackTheme, 5000); 
                         return;
                     } else {
-                        // 連公園都找不到 (極端狀況)，直接觸發「Google Maps 救援」
                         triggerGoogleMapsFallback(theme);
                         return;
                     }
@@ -386,21 +398,18 @@
 
             } catch (e) {
                 console.error(e);
-                // 發生錯誤 (連線超時等)，直接觸發 Google Maps 救援，不要讓使用者看到錯誤
                 triggerGoogleMapsFallback(theme);
             }
         }
 
-        // --- 終極保底：直接導流去 Google Maps ---
+        // --- 終極保底 ---
         function triggerGoogleMapsFallback(theme) {
             hideLoading();
-            // 造一個假地點資料，引導去 Google 搜尋
-            const fallbackName = `附近的 ${theme.keyword === 'museum' ? '展覽' : theme.name.replace('🎓 ','').replace('☕ ','')}`;
+            const fallbackName = `附近的 ${theme.name.replace(/^[^\s]+\s/, '')}`; // 移除 emoji
             
             // 搜尋連結
             const gmapSearchUrl = `https://www.google.com/maps/search/${encodeURIComponent(fallbackName)}`;
             
-            // UI 更新 (顯示橘色保底卡片)
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
             if (rangeCircle) map.removeLayer(rangeCircle);
@@ -416,7 +425,7 @@
             document.getElementById('action-buttons').innerHTML = `
                 <button class="btn-retry" onclick="startMission()"><i class="fas fa-redo"></i></button>
                 <a href="${gmapSearchUrl}" target="_blank" class="btn-link fallback" style="flex:2">
-                    <i class="fab fa-google"></i> 直接在 Google Maps 搜尋
+                    <i class="fab fa-google"></i> 直接搜尋
                 </a>
             `;
             
@@ -431,7 +440,6 @@
             const name = place.name || "神秘地點";
             const dist = (map.distance([currentLat, currentLng], [lat, lon]) / 1000).toFixed(1);
 
-            // 更新地圖
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
             if (rangeCircle) map.removeLayer(rangeCircle);
@@ -453,7 +461,6 @@
             }).addTo(map);
             map.fitBounds(routeLine.getBounds().pad(0.3));
 
-            // 更新文字
             document.getElementById('res-tag').innerText = type;
             document.getElementById('res-tag').className = currentMode === 'normal' ? 'res-tag' : 'res-tag event';
             document.getElementById('res-dist').innerText = `距離 ${dist} km`;
@@ -461,9 +468,7 @@
             document.getElementById('res-desc').innerHTML = desc;
             document.getElementById('res-desc').className = currentMode === 'normal' ? 'res-desc' : 'res-desc event';
             
-            // 搜尋邏輯：店名 + 行政區 (避免搜到分店)
             const searchContext = cityName ? `${name} ${cityName}` : name;
-            
             const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchContext + " 評價 介紹")}`;
             const eventSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchContext + " 展覽 活動 近期")}`;
             const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
