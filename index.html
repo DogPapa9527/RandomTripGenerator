@@ -2,21 +2,42 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週末抗懶散 V9.0 (旗艦版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>週末抗懶散</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="抗懶散">
+    <link rel="apple-touch-icon" href="icon.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        body { margin: 0; padding: 0; font-family: "SF Pro TC", "Microsoft JhengHei", sans-serif; background: #f0f2f5; overflow: hidden; }
+        /* 針對 iOS 全螢幕瀏海設計優化 */
+        :root {
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+
+        body { 
+            margin: 0; padding: 0; 
+            font-family: -apple-system, "SF Pro TC", "Microsoft JhengHei", sans-serif; 
+            background: #f0f2f5; overflow: hidden; 
+        }
+        
         #map { height: 100vh; width: 100%; z-index: 1; }
         
+        /* 頂部導覽列優化 */
         .top-bar {
-            position: absolute; top: 0; left: 0; width: 100%; padding: 15px 20px;
+            position: absolute; top: 0; left: 0; width: 100%; 
+            padding-top: calc(var(--safe-top) + 15px);
+            padding-bottom: 15px;
             background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%);
             z-index: 1000; pointer-events: none; text-align: center;
         }
-        .app-title { font-size: 1.1rem; font-weight: 900; color: #333; text-shadow: 0 2px 4px rgba(255,255,255,0.8); letter-spacing: 1px; }
+        .app-title { font-size: 1.1rem; font-weight: 900; color: #333; letter-spacing: 1px; }
 
+        /* 面板設計 */
         .bottom-panel-container {
             position: absolute; bottom: 0; left: 0; width: 100%;
             z-index: 2000; pointer-events: none;
@@ -25,106 +46,74 @@
         
         .bottom-panel {
             pointer-events: auto;
-            width: 95%; max-width: 420px;
+            width: 100%; max-width: 450px;
             background: rgba(255, 255, 255, 0.98);
             border-radius: 24px 24px 0 0;
             box-shadow: 0 -5px 30px rgba(0,0,0,0.15);
-            padding: 0 20px 30px 20px; box-sizing: border-box;
-            backdrop-filter: blur(10px);
-            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-            transform: translateY(0);
+            padding: 0 20px calc(var(--safe-bottom) + 20px) 20px; 
+            box-sizing: border-box;
+            backdrop-filter: blur(15px);
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }
-        .bottom-panel.minimized { transform: translateY(calc(100% - 75px)); }
+        
+        .bottom-panel.minimized { transform: translateY(calc(100% - 85px)); }
 
-        .panel-handle-area {
-            width: 100%; height: 35px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
-        }
-        .panel-handle { width: 50px; height: 5px; background: #e0e0e0; border-radius: 10px; }
+        .panel-handle-area { width: 100%; height: 35px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .panel-handle { width: 40px; height: 5px; background: #ddd; border-radius: 10px; }
 
+        /* 模式切換器 */
         .mode-switch-container {
-            background: #f0f2f5; border-radius: 16px; padding: 5px;
+            background: #f0f2f5; border-radius: 16px; padding: 4px;
             display: flex; margin-bottom: 20px; position: relative;
         }
-        .mode-option {
-            flex: 1; text-align: center; padding: 12px; font-size: 0.95rem; font-weight: bold; color: #888;
-            cursor: pointer; z-index: 2; transition: color 0.3s;
-        }
+        .mode-option { flex: 1; text-align: center; padding: 12px; font-size: 0.95rem; font-weight: bold; color: #888; cursor: pointer; z-index: 2; }
         .mode-option.active { color: #333; }
         .mode-slider {
-            position: absolute; top: 5px; left: 5px; width: calc(50% - 5px); height: calc(100% - 10px);
+            position: absolute; top: 4px; left: 4px; width: calc(50% - 4px); height: calc(100% - 8px);
             background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); z-index: 1;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 1;
         }
 
+        /* 按鈕設計 */
         .main-btn {
             width: 100%; padding: 18px; border: none; border-radius: 18px;
             background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white; font-size: 1.1rem; font-weight: 800;
+            color: white; font-size: 1.1rem; font-weight: 800; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
             box-shadow: 0 8px 20px rgba(56, 239, 125, 0.3);
-            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
-            transition: transform 0.1s;
         }
-        .main-btn:active { transform: scale(0.98); }
         .main-btn.event-mode {
             background: linear-gradient(135deg, #8e44ad 0%, #ff7675 100%);
             box-shadow: 0 8px 20px rgba(142, 68, 173, 0.3);
         }
 
         #result-area { display: none; margin-top: 10px; }
-        .mini-header { display: none; align-items: center; justify-content: space-between; }
-        .bottom-panel.minimized .mini-header { display: flex; }
-        .bottom-panel.minimized .full-content { display: none; }
-
-        .res-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .res-tag { background: #e0f2f1; color: #009688; padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; }
         .res-tag.event { background: #f3e5f5; color: #8e44ad; }
-        .res-tag.fallback { background: #fff3e0; color: #e67e22; }
-        
-        .res-title { font-size: 1.3rem; font-weight: 800; color: #2c3e50; margin-bottom: 8px; line-height: 1.3; }
-        .res-desc { 
-            font-size: 0.95rem; color: #555; line-height: 1.6; margin-bottom: 15px; 
-            background: #f8f9fa; padding: 15px; border-radius: 12px; border-left: 4px solid #38ef7d;
-        }
-        .res-desc.event { border-left-color: #8e44ad; }
-        .res-desc.fallback { border-left-color: #e67e22; }
+        .res-title { font-size: 1.3rem; font-weight: 800; color: #2c3e50; margin: 10px 0; }
+        .res-desc { font-size: 0.95rem; color: #555; line-height: 1.6; background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 15px; }
 
-        .action-row { display: flex; gap: 10px; margin-bottom: 10px; }
-        .btn-search {
-            flex: 1; background: #fff; border: 1px solid #ddd; color: #555; text-decoration: none;
-            padding: 12px; border-radius: 12px; font-weight: bold; text-align: center;
-            display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.9rem;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        }
-        .btn-link {
-            flex: 1; background: #11998e; color: white; text-decoration: none;
-            padding: 12px; border-radius: 12px; font-weight: bold; text-align: center;
-            display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.9rem;
-            box-shadow: 0 4px 10px rgba(17, 153, 142, 0.3);
-        }
-        .btn-link.event { background: #8e44ad; box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3); }
-        .btn-link.fallback { background: #e67e22; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3); }
-
-        .btn-retry {
-            width: 45px; background: #f0f0f0; color: #555; border: none;
-            border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
+        .action-row { display: flex; gap: 10px; }
+        .btn-search { flex: 1; background: #fff; border: 1px solid #ddd; padding: 12px; border-radius: 12px; font-weight: bold; text-align: center; text-decoration: none; color: #555; font-size: 0.9rem; }
+        .btn-link { flex: 1; background: #11998e; color: white; padding: 12px; border-radius: 12px; font-weight: bold; text-align: center; text-decoration: none; font-size: 0.9rem; }
+        .btn-link.event { background: #8e44ad; }
+        .btn-retry { width: 48px; background: #f0f0f0; border: none; border-radius: 12px; cursor: pointer; }
 
         .locate-btn {
-            position: absolute; bottom: 300px; right: 20px;
-            width: 45px; height: 45px; background: white; border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            position: absolute; bottom: 320px; right: 20px;
+            width: 48px; height: 48px; background: white; border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer; z-index: 1500; color: #333; transition: bottom 0.3s;
+            z-index: 1500; transition: bottom 0.4s;
         }
-        .bottom-panel.minimized ~ .locate-btn { bottom: 100px; }
+        .bottom-panel.minimized ~ .locate-btn { bottom: 110px; }
 
+        /* Loading */
         .loading-overlay {
-            position: absolute; top:0; left:0; width:100%; height:100%;
-            background: rgba(255,255,255,0.8); z-index: 3000;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            backdrop-filter: blur(5px);
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(255,255,255,0.85); z-index: 3000;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            backdrop-filter: blur(10px);
         }
         .spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #38ef7d; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -134,11 +123,11 @@
 
     <div id="loading" class="loading-overlay">
         <div class="spinner"></div>
-        <p id="loading-text" style="margin-top:15px; font-weight:bold; color:#555;">正在定位中...</p>
+        <p id="loading-text" style="margin-top:15px; font-weight:bold; color:#555;">正在掃描周邊...</p>
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散 V9.0</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V9.1</div>
     </div>
 
     <div id="map"></div>
@@ -149,30 +138,19 @@
                 <div class="panel-handle"></div>
             </div>
 
-            <div class="mini-header">
-                <div style="font-weight:800; color:#333; font-size:1.1rem;" id="mini-title">尚未開始</div>
-                <button class="btn-retry" style="height:35px;" onclick="event.stopPropagation(); startMission()">
-                    <i class="fas fa-redo"></i>
-                </button>
-            </div>
-
             <div class="full-content">
                 <div class="mode-switch-container">
                     <div class="mode-slider" id="slider"></div>
-                    <div class="mode-option active" onclick="switchMode('normal', 0)">
-                        <i class="fas fa-tree"></i> 多元探險
-                    </div>
-                    <div class="mode-option" onclick="switchMode('event', 100)">
-                        <i class="fas fa-calendar-alt"></i> 活動/展覽
-                    </div>
+                    <div class="mode-option active" onclick="switchMode('normal', 0)">日常探險</div>
+                    <div class="mode-option" onclick="switchMode('event', 100)">期間限定</div>
                 </div>
 
                 <div id="start-area">
                     <button id="main-btn" class="main-btn" onclick="startMission()">
-                        <i class="fas fa-random"></i> 隨機生成行程
+                        <i class="fas fa-dice"></i> 抽一張冒險卡
                     </button>
                     <p id="hint-text" style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
-                        * 搜尋範圍 1km ~ 20km，包含 16 種探險主題
+                        * 隨機搜尋 1km ~ 20km 內的特色地點
                     </p>
                 </div>
 
@@ -181,12 +159,9 @@
                         <div class="res-tag" id="res-tag">類別</div>
                         <div style="font-size:0.8rem; color:#888;" id="res-dist">距離</div>
                     </div>
-                    
                     <div class="res-title" id="res-name">地點名稱</div>
                     <div class="res-desc" id="res-desc">任務內容</div>
-
-                    <div class="action-row" id="action-buttons">
-                        </div>
+                    <div class="action-row" id="action-buttons"></div>
                 </div>
             </div>
         </div>
@@ -198,39 +173,25 @@
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        let map, userMarker, targetMarker, routeLine, rangeCircle;
+        let map, userMarker, targetMarker, routeLine;
         let currentLat, currentLng;
         let currentMode = 'normal';
 
-        // --- V9.0 旗艦級任務題庫 ---
-        // keyword: 用於 Nominatim 搜尋
+        // 伺服器列表
+        const nominatimUrl = "https://nominatim.openstreetmap.org/search";
+
+        // 探險類別
         const activityThemes = [
-            // 城市人文
-            { id: "university", name: "🎓 大學漫步", keyword: "university", tasks: ["去校園裡散步，找找便宜學餐。", "在草皮上發呆，觀察學生。", "去學校合作社買瓶飲料。", "找到校園裡最老的一棵樹。"] },
-            { id: "library", name: "📚 靈魂充電", keyword: "library", tasks: ["進去隨機抽一本雜誌，讀 20 分鐘。", "走到旅遊書區，決定下次旅行的國家。", "找一本你出生那年出版的書。", "不帶手機，純粹享受安靜。"] },
-            { id: "temple", name: "⛩️ 眾神保佑", keyword: "temple", tasks: ["進去感受建築的寧靜。", "觀察廟宇/教堂裡的雕刻細節。", "在附近找個地方坐著，聽聽鐘聲或誦經聲。", "在心裡默唸這週發生的一件好事。"] },
-            { id: "market", name: "🏮 懷舊市場", keyword: "marketplace", tasks: ["走進去感受在地的活力。", "買一樣當季水果。", "找找看有沒有沒吃過的傳統點心。", "聽聽攤販的叫賣聲。"] },
-            { id: "cafe", name: "☕ 獨立咖啡", keyword: "cafe", tasks: ["點一杯沒喝過的特調。", "不滑手機，觀察店員沖咖啡的動作。", "帶一本筆記本，寫下這週的心情。", "坐在窗邊觀察路人。"] },
-            
-            // 身體與感官
-            { id: "park", name: "🌲 自然森呼吸", keyword: "park", tasks: ["找到這個地方的最高點，深呼吸三次。", "找張長椅發呆 10 分鐘。", "脫下鞋子(如果可以)，赤腳踩踩草地。", "拍一張逆光的樹葉照片。"] },
-            { id: "hot_spring", name: "♨️ 城市秘湯", keyword: "hot spring", tasks: ["去泡個腳，放鬆一下。", "找找看有沒有便宜的公共浴池。", "在溫泉區買顆溫泉蛋。"] },
-            { id: "sports", name: "🏃 動起來", keyword: "sports_centre", tasks: ["去田徑場走兩圈。", "觀察別人都在做什麼運動。", "去量個體重體脂(如果有機器)。"] },
-            
-            // 挖寶與冒險
-            { id: "bakery", name: "🍰 巷弄甜點", keyword: "bakery", tasks: ["買一個看起來最厲害的麵包。", "找找看有沒有剛出爐的點心。", "買一塊蛋糕犒賞自己。"] },
-            { id: "bookstore", name: "📖 書香尋寶", keyword: "bookstore", tasks: ["去找一本絕版書或二手書。", "買一本封面吸引你的書。", "翻閱一本攝影集。"] },
-            { id: "florist", name: "🌸 花鳥市場", keyword: "florist", tasks: ["買一盆不需要太費心照顧的小植物。", "進去聞聞花的香味。", "認識三種你叫不出名字的花。"] },
-            
-            // 特殊與小眾
-            { id: "viewpoint", name: "🎑 觀景高地", keyword: "viewpoint", tasks: ["從不同角度看你住的城市。", "拍一張全景照片。", "大喊一聲(如果沒人的話)。"] },
-            { id: "historic", name: "🏗️ 老屋再生", keyword: "historic", tasks: ["去摸摸看老建築的牆壁。", "想像一下 50 年前這裡的人在做什麼。", "拍一張黑白風格的照片。"] },
-            { id: "station", name: "🚂 鐵道迷蹤", keyword: "railway station", tasks: ["去一個沒聽過的小車站晃晃。", "觀察火車進站的瞬間。", "買一張最便宜的票留作紀念。"] },
-            { id: "restaurant", name: "🍽️ 在地美食", keyword: "restaurant", tasks: ["點一道你平常不會吃的菜。", "看看別桌都點什麼。", "找一家評價很高但沒吃過的店。"] }
+            { id: "uni", name: "🎓 大學漫步", keyword: "university", tasks: ["去校園散步，找找便宜學餐。", "在草皮發呆看學生。"] },
+            { id: "lib", name: "📚 靈魂充電", keyword: "library", tasks: ["隨機翻本雜誌讀20分鐘。", "找本絕版書尋寶。"] },
+            { id: "temple", name: "⛩️ 眾神保佑", keyword: "temple", tasks: ["觀察廟宇精美的雕刻。", "關掉手機沉靜5分鐘。"] },
+            { id: "park", name: "🌲 自然呼吸", keyword: "park", tasks: ["深呼吸三次，找回平靜。", "拍一張最美的風景照。"] },
+            { id: "cafe", name: "☕ 獨立咖啡", keyword: "cafe", tasks: ["點一杯特調，不滑手機。", "觀察店員職人的姿態。"] },
+            { id: "market", name: "🥬 傳統市場", keyword: "market", tasks: ["體驗在地的叫賣活力。", "買一樣沒吃過的水果。"] },
+            { id: "historic", name: "🏗️ 古蹟巡禮", keyword: "historic", tasks: ["摸摸老牆壁，感受歷史。", "拍張復古風格的照片。"] }
         ];
 
-        // 連鎖店黑名單
-        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart", "Mos Burger", "Subway", "85C", "Cama"];
+        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart"];
 
         window.onload = function() {
             initMap();
@@ -238,268 +199,115 @@
         };
 
         function initMap() {
-            map = L.map('map', {zoomControl: false}).setView([25.0478, 121.5170], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: ''}).addTo(map);
+            map = L.map('map', {zoomControl: false}).setView([25.04, 121.51], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
         }
 
         function getCurrentLocation() {
-            showLoading("定位中...");
             if ("geolocation" in navigator) {
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
                         currentLat = pos.coords.latitude;
                         currentLng = pos.coords.longitude;
-                        updateUserLocation(currentLat, currentLng);
-                        hideLoading();
+                        updateUserLocation();
                     },
-                    (err) => {
-                        alert("定位失敗，使用預設位置");
-                        currentLat = 25.0478; currentLng = 121.5170; 
-                        updateUserLocation(currentLat, currentLng);
-                        hideLoading();
-                    },
-                    { enableHighAccuracy: true }
+                    () => { alert("請開啟定位權限"); }
                 );
-            } else {
-                hideLoading();
-                alert("瀏覽器不支援定位");
             }
         }
 
-        function updateUserLocation(lat, lng) {
+        function updateUserLocation() {
             if (userMarker) map.removeLayer(userMarker);
-            userMarker = L.circleMarker([lat, lng], {
+            userMarker = L.circleMarker([currentLat, currentLng], {
                 radius: 8, fillColor: '#11998e', color: '#fff', weight: 3, fillOpacity: 1
             }).addTo(map);
-            map.setView([lat, lng], 14);
+            map.setView([currentLat, currentLng], 14);
         }
 
-        function togglePanel() {
-            document.getElementById('panel').classList.toggle('minimized');
-        }
-
-        function expandPanel() {
-            document.getElementById('panel').classList.remove('minimized');
-        }
-
-        window.switchMode = function(mode, offsetPercent) {
+        function togglePanel() { document.getElementById('panel').classList.toggle('minimized'); }
+        
+        window.switchMode = function(mode, offset) {
             currentMode = mode;
-            document.getElementById('slider').style.transform = `translateX(${offsetPercent}%)`;
-            const opts = document.querySelectorAll('.mode-option');
-            opts.forEach(o => o.classList.remove('active'));
-            if(mode === 'normal') opts[0].classList.add('active');
-            else opts[1].classList.add('active');
-
-            const btn = document.getElementById('main-btn');
-            const hint = document.getElementById('hint-text');
-            
+            document.getElementById('slider').style.transform = `translateX(${offset}%)`;
+            document.querySelectorAll('.mode-option').forEach((el, idx) => el.classList.toggle('active', (idx === (offset/100))));
             document.getElementById('result-area').style.display = 'none';
             document.getElementById('start-area').style.display = 'block';
-
-            if (mode === 'normal') {
-                btn.innerHTML = '<i class="fas fa-random"></i> 隨機生成行程';
-                btn.className = 'main-btn';
-                hint.innerText = "* 範圍 1~20km，包含 16 種探險類別";
-            } else {
-                btn.innerHTML = '<i class="fas fa-search"></i> 搜尋活動場館';
-                btn.className = 'main-btn event-mode';
-                hint.innerText = "* 搜尋附近的藝術中心、博物館、展演空間";
-            }
         }
 
         async function startMission() {
-            if (!currentLat) { alert("請先定位"); return; }
-            expandPanel();
+            document.getElementById('panel').classList.remove('minimized');
+            showLoading("正在搜尋地圖...");
+            const radius = Math.floor(Math.random() * 19000 + 1000);
+            const theme = (currentMode === 'normal') 
+                ? activityThemes[Math.floor(Math.random() * activityThemes.length)]
+                : { name: "🏛️ 藝文場館", keyword: "museum", task: "去看看海報牆，看最近有什麼展覽。" };
             
-            // 隨機半徑: 1km ~ 20km (不放棄家裡附近，也不排斥遠方)
-            const radius = Math.floor(Math.random() * (20000 - 1000) + 1000);
-            
-            if (currentMode === 'normal') {
-                showLoading("正在掃描周邊...");
-                // 隨機抽選主題
-                const theme = activityThemes[Math.floor(Math.random() * activityThemes.length)];
-                fetchNominatim(theme, radius);
-            } else {
-                showLoading("正在搜尋展覽場館...");
-                // 展覽模式
-                const theme = { 
-                    name: "🏛️ 藝文場館", 
-                    keyword: "museum", // 預設先找博物館
-                    task: "前往此處，看看海報牆或售票口最近有什麼演出或展覽。"
-                };
-                // 展覽模式有時候博物館找不到，可以嘗試 Arts Centre
-                // 這裡做個簡單隨機
-                if (Math.random() > 0.5) theme.keyword = "arts_centre";
-                
-                fetchNominatim(theme, radius);
-            }
+            fetchPlace(theme, radius);
         }
 
-        // --- Nominatim API ---
-        async function fetchNominatim(theme, radius) {
-            // 計算 Bounding Box
-            const degLat = radius / 111000;
-            const degLng = radius / (111000 * Math.cos(currentLat * Math.PI / 180));
-            
-            const viewbox = [
-                currentLng - degLng, // left
-                currentLat + degLat, // top
-                currentLng + degLng, // right
-                currentLat - degLat  // bottom
-            ].join(',');
-
-            const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(theme.keyword)}&format=json&viewbox=${viewbox}&bounded=1&limit=20&addressdetails=1`;
+        async function fetchPlace(theme, radius) {
+            const deg = radius / 111000;
+            const viewbox = [currentLng-deg, currentLat+deg, currentLng+deg, currentLat-deg].join(',');
+            const url = `${nominatimUrl}?q=${encodeURIComponent(theme.keyword)}&format=json&viewbox=${viewbox}&bounded=1&limit=25&addressdetails=1`;
             
             try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                const res = await fetch(url);
+                let data = await res.json();
                 
-                const response = await fetch(url, { signal: controller.signal });
-                clearTimeout(timeoutId);
-
-                if (!response.ok) throw new Error("API Error");
-                const data = await response.json();
-
-                let candidates = data;
-
-                // 過濾連鎖店
                 if (currentMode === 'normal') {
-                    candidates = candidates.filter(place => {
-                        const name = (place.name || "").toLowerCase();
-                        return !chainBlockList.some(chain => name.includes(chain.toLowerCase()));
-                    });
+                    data = data.filter(p => !chainBlockList.some(c => (p.display_name||"").includes(c)));
                 }
 
-                // 找不到資料 -> 保底
-                if (candidates.length === 0) {
-                    console.warn(`類別 ${theme.name} 無結果，切換保底`);
-                    if (theme.id !== 'park') {
-                        // 找不到大學/溫泉/古蹟 -> 改找公園 (一定有)
-                        const fallbackTheme = activityThemes.find(t => t.id === 'park');
-                        // 遞迴呼叫，但把半徑設為 5km (確保找得到)
-                        fetchNominatim(fallbackTheme, 5000); 
-                        return;
-                    } else {
-                        triggerGoogleMapsFallback(theme);
-                        return;
-                    }
+                if (data.length === 0) {
+                    // 保底
+                    if (theme.id !== 'park') return fetchPlace(activityThemes.find(t=>t.id==='park'), 5000);
+                    else throw new Error();
                 }
 
-                const place = candidates[Math.floor(Math.random() * candidates.length)];
-                
-                // 提取行政區
-                const addr = place.address || {};
-                const city = addr.city || addr.town || addr.district || addr.county || "";
-                
-                let taskText = theme.task;
-                if (theme.tasks) taskText = theme.tasks[Math.floor(Math.random() * theme.tasks.length)];
-
-                generateResult(place, theme.name, taskText, city);
-
+                const place = data[Math.floor(Math.random() * data.length)];
+                const city = place.address.city || place.address.town || place.address.district || "";
+                renderResult(place, theme, city);
             } catch (e) {
-                console.error(e);
-                triggerGoogleMapsFallback(theme);
+                alert("搜尋失敗，請再試一次");
+                hideLoading();
             }
         }
 
-        // --- 終極保底 ---
-        function triggerGoogleMapsFallback(theme) {
-            hideLoading();
-            const fallbackName = `附近的 ${theme.name.replace(/^[^\s]+\s/, '')}`; // 移除 emoji
-            
-            // 搜尋連結
-            const gmapSearchUrl = `https://www.google.com/maps/search/${encodeURIComponent(fallbackName)}`;
-            
-            if (targetMarker) map.removeLayer(targetMarker);
-            if (routeLine) map.removeLayer(routeLine);
-            if (rangeCircle) map.removeLayer(rangeCircle);
-
-            document.getElementById('res-tag').innerText = "💡 靈感建議";
-            document.getElementById('res-tag').className = "res-tag fallback";
-            document.getElementById('res-dist').innerText = "未知距離";
-            document.getElementById('res-name').innerText = fallbackName;
-            
-            document.getElementById('res-desc').innerHTML = "地圖資料連線忙碌，但別因此放棄出門！<br>點擊下方按鈕，直接在 Google Maps 尋找目標。";
-            document.getElementById('res-desc').className = "res-desc fallback";
-
-            document.getElementById('action-buttons').innerHTML = `
-                <button class="btn-retry" onclick="startMission()"><i class="fas fa-redo"></i></button>
-                <a href="${gmapSearchUrl}" target="_blank" class="btn-link fallback" style="flex:2">
-                    <i class="fab fa-google"></i> 直接搜尋
-                </a>
-            `;
-            
-            document.getElementById('mini-title').innerText = fallbackName;
-            document.getElementById('start-area').style.display = 'none';
-            document.getElementById('result-area').style.display = 'block';
-        }
-
-        function generateResult(place, type, desc, cityName) {
-            const lat = parseFloat(place.lat);
-            const lon = parseFloat(place.lon);
-            const name = place.name || "神秘地點";
+        function renderResult(place, theme, city) {
+            const lat = parseFloat(place.lat), lon = parseFloat(place.lon);
+            const name = place.display_name.split(',')[0];
             const dist = (map.distance([currentLat, currentLng], [lat, lon]) / 1000).toFixed(1);
 
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
-            if (rangeCircle) map.removeLayer(rangeCircle);
 
-            const iconUrl = currentMode === 'normal' 
-                ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png'
-                : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png';
-
-            const icon = L.icon({
-                iconUrl: iconUrl,
-                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-            });
-            targetMarker = L.marker([lat, lon], {icon: icon}).addTo(map);
-
-            const lineColor = currentMode === 'normal' ? '#11998e' : '#8e44ad';
-            routeLine = L.polyline([[currentLat, currentLng], [lat, lon]], {
-                color: lineColor, weight: 4, dashArray: '10, 10', opacity: 0.8
-            }).addTo(map);
+            const iconUrl = `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${currentMode === 'normal'?'green':'violet'}.png`;
+            targetMarker = L.marker([lat, lon], {icon: L.icon({iconUrl, iconSize:[25,41], iconAnchor:[12,41]})}).addTo(map);
+            routeLine = L.polyline([[currentLat, currentLng], [lat, lon]], {color: currentMode==='normal'?'#11998e':'#8e44ad', dashArray:'10,10'}).addTo(map);
             map.fitBounds(routeLine.getBounds().pad(0.3));
 
-            document.getElementById('res-tag').innerText = type;
-            document.getElementById('res-tag').className = currentMode === 'normal' ? 'res-tag' : 'res-tag event';
-            document.getElementById('res-dist').innerText = `距離 ${dist} km`;
+            document.getElementById('res-tag').innerText = theme.name;
+            document.getElementById('res-tag').className = `res-tag ${currentMode==='event'?'event':''}`;
             document.getElementById('res-name').innerText = name;
-            document.getElementById('res-desc').innerHTML = desc;
-            document.getElementById('res-desc').className = currentMode === 'normal' ? 'res-desc' : 'res-desc event';
+            document.getElementById('res-dist').innerText = `${dist} km`;
+            document.getElementById('res-desc').innerText = theme.task || theme.tasks[Math.floor(Math.random()*theme.tasks.length)];
             
-            const searchContext = cityName ? `${name} ${cityName}` : name;
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchContext + " 評價 介紹")}`;
-            const eventSearchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchContext + " 展覽 活動 近期")}`;
-            const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
-            
-            const finalSearchUrl = currentMode === 'normal' ? searchUrl : eventSearchUrl;
-            const btnText = currentMode === 'normal' ? 'Google 看看這是哪' : 'Google 搜近期活動';
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name + ' ' + city + (currentMode==='normal'?' 評價':' 展覽活動'))}`;
+            const gmapUrl = `http://maps.google.com/maps?daddr=${lat},${lon}&dirflg=d`;
 
             document.getElementById('action-buttons').innerHTML = `
                 <button class="btn-retry" onclick="startMission()"><i class="fas fa-redo"></i></button>
-                <a href="${finalSearchUrl}" target="_blank" class="btn-search">
-                    <i class="fab fa-google"></i> ${btnText}
-                </a>
-                <a href="${gmapUrl}" target="_blank" class="btn-link ${currentMode === 'normal'?'':'event'}">
-                    <i class="fas fa-location-arrow"></i> 導航
-                </a>
+                <a href="${searchUrl}" target="_blank" class="btn-search"><i class="fab fa-google"></i> Google 搜尋</a>
+                <a href="${gmapUrl}" target="_blank" class="btn-link ${currentMode==='event'?'event':''}">導航</a>
             `;
-            
-            document.getElementById('mini-title').innerText = name;
+
             document.getElementById('start-area').style.display = 'none';
             document.getElementById('result-area').style.display = 'block';
-            
             hideLoading();
         }
 
-        function showLoading(text) {
-            document.getElementById('loading-text').innerText = text;
-            document.getElementById('loading').style.display = 'flex';
-        }
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-        }
+        function showLoading(t) { document.getElementById('loading-text').innerText = t; document.getElementById('loading').style.display = 'flex'; }
+        function hideLoading() { document.getElementById('loading').style.display = 'none'; }
     </script>
 </body>
 </html>
