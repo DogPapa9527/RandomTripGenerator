@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週末抗懶散 V4.1</title>
+    <title>週末抗懶散 V5.0 (AI協作版)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { margin: 0; padding: 0; font-family: "SF Pro TC", "Microsoft JhengHei", sans-serif; background: #f0f2f5; overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; }
         
+        /* 頂部標題 */
         .top-bar {
             position: absolute; top: 0; left: 0; width: 100%; padding: 15px 20px;
             background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 100%);
@@ -17,43 +18,34 @@
         }
         .app-title { font-size: 1.1rem; font-weight: 900; color: #333; text-shadow: 0 2px 4px rgba(255,255,255,0.8); letter-spacing: 1px; }
 
-        /* --- 底部面板容器 --- */
+        /* 面板容器 */
         .bottom-panel-container {
             position: absolute; bottom: 0; left: 0; width: 100%;
-            z-index: 2000; pointer-events: none; /* 讓點擊穿透到地圖，除非點到面板 */
+            z-index: 2000; pointer-events: none;
             display: flex; justify-content: center;
         }
-
-        /* --- 實際面板 --- */
+        
+        /* 面板本體 */
         .bottom-panel {
             pointer-events: auto;
             width: 95%; max-width: 420px;
             background: rgba(255, 255, 255, 0.98);
-            border-radius: 24px 24px 0 0; /* 下方貼底 */
+            border-radius: 24px 24px 0 0;
             box-shadow: 0 -5px 30px rgba(0,0,0,0.15);
             padding: 0 20px 30px 20px; box-sizing: border-box;
             backdrop-filter: blur(10px);
             transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-            transform: translateY(0); /* 預設展開 */
+            transform: translateY(0);
         }
 
-        /* 縮小狀態 */
-        .bottom-panel.minimized {
-            transform: translateY(calc(100% - 75px)); /* 只露出頂部 75px */
-        }
+        .bottom-panel.minimized { transform: translateY(calc(100% - 75px)); }
 
-        /* 面板把手區 (點擊縮放) */
         .panel-handle-area {
             width: 100%; height: 35px;
             display: flex; align-items: center; justify-content: center;
             cursor: pointer;
         }
-        .panel-handle {
-            width: 50px; height: 5px; background: #e0e0e0; border-radius: 10px;
-        }
-
-        /* 內容區 */
-        .panel-content { /* 用於縮放時隱藏/顯示 */ }
+        .panel-handle { width: 50px; height: 5px; background: #e0e0e0; border-radius: 10px; }
 
         /* 模式切換 */
         .mode-switch-container {
@@ -71,6 +63,7 @@
             transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); z-index: 1;
         }
 
+        /* 主按鈕 */
         .main-btn {
             width: 100%; padding: 18px; border: none; border-radius: 18px;
             background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
@@ -88,35 +81,57 @@
         /* 結果顯示區 */
         #result-area { display: none; margin-top: 10px; }
         
-        /* 縮小時顯示的精簡標題 */
-        .mini-header { display: none; align-items: center; justify-content: space-between; margin-bottom: 0; }
+        .mini-header { display: none; align-items: center; justify-content: space-between; }
         .bottom-panel.minimized .mini-header { display: flex; }
         .bottom-panel.minimized .full-content { display: none; }
-        .bottom-panel.minimized .mode-switch-container { display: none; }
-        .bottom-panel.minimized .main-btn { display: none; }
-        
-        /* 展開時的完整內容 */
+
         .res-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .res-tag { background: #e0f2f1; color: #009688; padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; }
         .res-tag.event { background: #f3e5f5; color: #8e44ad; }
         
         .res-title { font-size: 1.3rem; font-weight: 800; color: #2c3e50; margin-bottom: 8px; line-height: 1.3; }
+        
         .res-desc { 
-            font-size: 0.95rem; color: #555; line-height: 1.6; margin-bottom: 20px; 
+            font-size: 0.95rem; color: #555; line-height: 1.6; margin-bottom: 15px; 
             background: #f8f9fa; padding: 15px; border-radius: 12px; border-left: 4px solid #38ef7d;
         }
         .res-desc.event { border-left-color: #8e44ad; }
 
-        .action-row { display: flex; gap: 10px; }
+        /* 按鈕群組 */
+        .action-row { display: flex; gap: 10px; margin-bottom: 10px; }
         .btn-link {
             flex: 1; background: #11998e; color: white; text-decoration: none;
             padding: 12px; border-radius: 12px; font-weight: bold; text-align: center;
-            display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.95rem;
+            display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.9rem;
         }
         .btn-link.event { background: #8e44ad; }
+        
+        /* 搜尋按鈕 */
+        .btn-search {
+            flex: 1; background: #fff; border: 1px solid #ddd; color: #555; text-decoration: none;
+            padding: 12px; border-radius: 12px; font-weight: bold; text-align: center;
+            display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.9rem;
+        }
+
         .btn-retry {
             width: 45px; background: #f0f0f0; color: #555; border: none;
             border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* AI Prompt 區塊 */
+        .ai-prompt-container {
+            margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd;
+        }
+        .btn-ai {
+            width: 100%; padding: 12px; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; font-weight: bold; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        textarea#gemini-prompt {
+            width: 100%; height: 80px; margin-top: 10px; padding: 10px;
+            border: 1px solid #eee; border-radius: 8px; background: #f9f9f9;
+            font-size: 0.85rem; color: #555; resize: none; display: none;
         }
 
         /* 定位按鈕 */
@@ -127,7 +142,6 @@
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; z-index: 1500; color: #333; transition: bottom 0.3s;
         }
-        /* 當面板縮小時，定位按鈕往下移 */
         .bottom-panel.minimized ~ .locate-btn { bottom: 100px; }
 
         .loading-overlay {
@@ -148,7 +162,7 @@
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散 V4.1</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V5.0</div>
     </div>
 
     <div id="map"></div>
@@ -195,13 +209,17 @@
                     <div class="res-title" id="res-name">地點名稱</div>
                     <div class="res-desc" id="res-desc">任務內容</div>
 
-                    <div class="action-row">
+                    <div class="action-row" id="action-buttons">
                         <button class="btn-retry" onclick="startMission()">
                             <i class="fas fa-redo"></i>
                         </button>
-                        <a id="res-link" href="#" target="_blank" class="btn-link">
-                            <i class="fas fa-location-arrow"></i> 導航出發
-                        </a>
+                        </div>
+
+                    <div class="ai-prompt-container" id="ai-container">
+                        <button class="btn-ai" onclick="toggleAiPrompt()">
+                            <i class="fas fa-magic"></i> 請 Gemini 幫我想專屬玩法
+                        </button>
+                        <textarea id="gemini-prompt" readonly onclick="this.select()"></textarea>
                     </div>
                 </div>
             </div>
@@ -217,19 +235,56 @@
         let map, userMarker, targetMarker, routeLine, rangeCircle;
         let currentLat, currentLng;
         let currentMode = 'normal';
-        let panelState = 'expanded'; // expanded or minimized
 
-        // 多元活動主題 (日常)
+        // --- 1. 多元活動與隨機題庫 (解決單調問題) ---
         const activityThemes = [
-            { id: "university", name: "🎓 大學漫步", query: 'node["amenity"="university"]', task: "去校園裡散步，找找看有沒有便宜的學餐或大草皮。" },
-            { id: "library", name: "📚 靈魂充電", query: 'node["amenity"="library"]', task: "進去圖書館，隨機抽一本雜誌或書，坐著讀 20 分鐘。" },
-            { id: "worship", name: "⛩️ 沉澱心靈", query: 'node["amenity"="place_of_worship"]', task: "進去感受一下建築的寧靜，觀察屋頂或窗戶的細節。" },
-            { id: "nature", name: "🌲 自然呼吸", query: '(node["leisure"="park"]; node["tourism"="viewpoint"];)', task: "找到這個地方的最高點或中心點，深呼吸三次。" },
-            { id: "market", name: "🥬 傳統市場", query: 'node["amenity"="marketplace"]', task: "走進去感受在地的活力，買一樣當季水果。" },
-            { id: "cafe", name: "☕ 獨立咖啡", query: 'node["amenity"="cafe"]', task: "點一杯沒喝過的飲料，佔領一個角落發呆。" }
+            { 
+                id: "university", name: "🎓 大學漫步", query: 'node["amenity"="university"]', 
+                tasks: [
+                    "去校園裡散步，找找看有沒有便宜的學餐。", 
+                    "在校園草皮上坐著，觀察來往的學生。", 
+                    "去學校合作社買瓶飲料，假裝自己是大學生。",
+                    "找到校園裡最老的一棵樹，拍張照。"
+                ]
+            },
+            { 
+                id: "library", name: "📚 靈魂充電", query: 'node["amenity"="library"]', 
+                tasks: [
+                    "進去隨機抽一本雜誌，坐著讀 20 分鐘。", 
+                    "走到旅遊書區，翻開一本書，決定下次旅行的國家。",
+                    "不帶手機進去，純粹享受安靜的 15 分鐘。",
+                    "去找一本你小時候看過的童書。"
+                ]
+            },
+            { 
+                id: "worship", name: "⛩️ 沉澱心靈", query: 'node["amenity"="place_of_worship"]', 
+                tasks: [
+                    "進去感受建築的寧靜，觀察屋頂的細節。", 
+                    "在心裡默唸這週發生的一件好事。",
+                    "觀察廟宇/教堂裡的雕刻或彩繪。",
+                    "在附近找個地方坐著，聽聽鐘聲或誦經聲。"
+                ]
+            },
+            { 
+                id: "nature", name: "🌲 自然呼吸", query: '(node["leisure"="park"]; node["tourism"="viewpoint"];)', 
+                tasks: [
+                    "找到這個地方的最高點，深呼吸三次。", 
+                    "找張長椅發呆 10 分鐘，數數看有幾隻狗經過。",
+                    "脫下鞋子(如果可以)，赤腳踩踩草地。",
+                    "拍一張逆光的樹葉照片。"
+                ]
+            },
+            { 
+                id: "cafe", name: "☕ 獨立咖啡", query: 'node["amenity"="cafe"]', 
+                tasks: [
+                    "點一杯沒喝過的特調，佔領一個角落。", 
+                    "不滑手機，觀察店員沖咖啡的動作。",
+                    "帶一本筆記本，寫下這週的心情。",
+                    "點一塊蛋糕，細細品嘗每一口。"
+                ]
+            }
         ];
 
-        // 連鎖店黑名單
         const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart"];
 
         window.onload = function() {
@@ -253,7 +308,7 @@
                         hideLoading();
                     },
                     (err) => {
-                        alert("定位失敗，預設台北車站");
+                        alert("定位失敗");
                         currentLat = 25.0478; currentLng = 121.5170;
                         updateUserLocation(currentLat, currentLng);
                         hideLoading();
@@ -274,21 +329,13 @@
             map.setView([lat, lng], 14);
         }
 
-        // --- 面板控制 ---
         function togglePanel() {
             const panel = document.getElementById('panel');
-            if (panel.classList.contains('minimized')) {
-                panel.classList.remove('minimized');
-                panelState = 'expanded';
-            } else {
-                panel.classList.add('minimized');
-                panelState = 'minimized';
-            }
+            panel.classList.toggle('minimized');
         }
 
         function expandPanel() {
             document.getElementById('panel').classList.remove('minimized');
-            panelState = 'expanded';
         }
 
         window.switchMode = function(mode, offsetPercent) {
@@ -301,6 +348,7 @@
 
             const btn = document.getElementById('main-btn');
             const hint = document.getElementById('hint-text');
+            const aiContainer = document.getElementById('ai-container');
             
             document.getElementById('result-area').style.display = 'none';
             document.getElementById('start-area').style.display = 'block';
@@ -309,19 +357,21 @@
                 btn.innerHTML = '<i class="fas fa-random"></i> 隨機生成行程';
                 btn.className = 'main-btn';
                 hint.innerText = "* 包含：大學、圖書館、步道、溫泉、市場、咖啡廳";
+                aiContainer.style.display = 'block'; // 日常模式可以問 AI
             } else {
                 btn.innerHTML = '<i class="fas fa-search"></i> 搜尋活動場館';
                 btn.className = 'main-btn event-mode';
                 hint.innerText = "* 搜尋附近的藝術中心、博物館、展演空間";
+                aiContainer.style.display = 'none'; // 活動模式不需要問 AI (直接去 Google)
             }
         }
 
         async function startMission() {
             if (!currentLat) { alert("請先定位"); return; }
+            expandPanel();
             
-            expandPanel(); // 開始時先展開面板
-            
-            const radius = Math.floor(Math.random() * (10000 - 2000) + 2000);
+            // 隨機半徑
+            const radius = Math.floor(Math.random() * (8000 - 2000) + 2000);
             
             if (currentMode === 'normal') {
                 showLoading("正在尋找有趣的角落...");
@@ -330,11 +380,8 @@
                 fetchOSM(query, theme);
 
             } else {
-                // --- 修正後的活動模式：穩定的場館搜尋 ---
                 showLoading("正在搜尋展覽場館...");
-                const theme = { name: "🏛️ 藝文活動", task: "前往此處，看看海報牆或售票口最近有什麼演出或展覽。" };
-                
-                // 搜尋：博物館、美術館、藝術中心、劇院、電影院、Live House
+                // 展覽模式：尋找容器
                 const query = `
                     [out:json][timeout:15];
                     (
@@ -343,7 +390,7 @@
                     );
                     out 20;
                 `;
-                fetchOSM(query, theme);
+                fetchOSM(query, {name: "🎨 藝文場館", isEvent: true});
             }
         }
 
@@ -355,7 +402,7 @@
                 
                 let candidates = data.elements || [];
                 
-                // 過濾連鎖店 (只針對 Cafe)
+                // 過濾連鎖店
                 if (theme.id === 'cafe') {
                     candidates = candidates.filter(place => {
                         const name = place.tags.name || "";
@@ -364,21 +411,13 @@
                 }
 
                 if (candidates.length === 0) {
-                     // 遞迴重試 (如果沒大學，就找公園)
-                    if (theme.id && theme.id !== 'nature') {
-                        const fallbackTheme = activityThemes.find(t => t.id === 'nature');
-                        const fallbackQuery = `[out:json][timeout:15];(${fallbackTheme.query}(around:5000,${currentLat},${currentLng}););out 20;`;
-                        fetchOSM(fallbackQuery, fallbackTheme);
-                        return;
-                    } else {
-                        alert("附近真的太荒涼了...找不到適合的點");
-                        hideLoading();
-                        return;
-                    }
+                    alert("這附近有點荒涼...找不到點");
+                    hideLoading();
+                    return;
                 }
 
                 const place = candidates[Math.floor(Math.random() * candidates.length)];
-                generateResult(place, theme.name, theme.task);
+                generateResult(place, theme);
 
             } catch (e) {
                 console.error(e);
@@ -387,17 +426,16 @@
             }
         }
 
-        function generateResult(place, type, desc) {
+        function generateResult(place, theme) {
             const tags = place.tags || {};
             const name = tags.name || "未知的地點";
             const lat = place.lat;
             const lon = place.lon;
             const dist = (map.distance([currentLat, currentLng], [lat, lon]) / 1000).toFixed(1);
 
-            // 更新地圖
+            // 1. 地圖標記
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
-            if (rangeCircle) map.removeLayer(rangeCircle);
 
             const iconUrl = currentMode === 'normal' 
                 ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png'
@@ -414,30 +452,83 @@
             routeLine = L.polyline([[currentLat, currentLng], [lat, lon]], {
                 color: lineColor, weight: 4, dashArray: '10, 10', opacity: 0.8
             }).addTo(map);
-            map.fitBounds(routeLine.getBounds().pad(0.3)); // 縮放地圖讓路線可見
+            map.fitBounds(routeLine.getBounds().pad(0.3));
 
-            // 更新面板文字 (完整版)
-            document.getElementById('res-tag').innerText = type;
+            // 2. 生成任務與按鈕
+            let taskText = "";
+            let actionButtonsHtml = "";
+
+            if (currentMode === 'normal') {
+                // 從該類別的任務池中隨機抽一個
+                const randomTask = theme.tasks[Math.floor(Math.random() * theme.tasks.length)];
+                taskText = randomTask;
+                
+                // 按鈕：導航 + AI 
+                const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+                actionButtonsHtml = `
+                    <a href="${gmapUrl}" target="_blank" class="btn-link">
+                        <i class="fas fa-location-arrow"></i> 導航出發
+                    </a>
+                `;
+                
+                // 設定 AI Prompt
+                const aiPrompt = `我正在使用「週末抗懶散」程式。
+地點：${name} (${theme.name})
+我想要更深入的玩法。請幫我搜尋這家店的特色（如果是知名地點）或根據地點類型，給我不一樣的挑戰任務（例如必吃的餐點、必看的角落）。`;
+                document.getElementById('gemini-prompt').value = aiPrompt;
+                document.getElementById('gemini-prompt').style.display = 'none'; // 預設隱藏
+
+            } else {
+                // 活動模式
+                taskText = "點擊下方按鈕，搜尋此場館近期的展覽與活動資訊。";
+                
+                // 按鈕：Google 搜尋活動 + 導航
+                const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
+                // Google Search Query: 地點 + 展覽 + 2026
+                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name + " 展覽 活動 2026")}`;
+                
+                actionButtonsHtml = `
+                    <a href="${searchUrl}" target="_blank" class="btn-search">
+                        <i class="fab fa-google"></i> 搜近期活動
+                    </a>
+                    <a href="${gmapUrl}" target="_blank" class="btn-link event">
+                        <i class="fas fa-location-arrow"></i> 導航
+                    </a>
+                `;
+            }
+
+            // 3. 更新 UI
+            document.getElementById('res-tag').innerText = theme.name;
             document.getElementById('res-tag').className = currentMode === 'normal' ? 'res-tag' : 'res-tag event';
             document.getElementById('res-dist').innerText = `距離 ${dist} km`;
             document.getElementById('res-name').innerText = name;
-            document.getElementById('res-desc').innerHTML = desc;
+            document.getElementById('res-desc').innerHTML = taskText;
             document.getElementById('res-desc').className = currentMode === 'normal' ? 'res-desc' : 'res-desc event';
             
-            // 更新縮小版文字
+            document.getElementById('action-buttons').innerHTML = `
+                <button class="btn-retry" onclick="startMission()"><i class="fas fa-redo"></i></button>
+                ${actionButtonsHtml}
+            `;
+            
             document.getElementById('mini-title').innerText = name;
 
-            // 導航連結 (座標模式)
-            const gmapUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}&travelmode=driving`;
-            const btnLink = document.getElementById('res-link');
-            btnLink.href = gmapUrl;
-            btnLink.className = currentMode === 'normal' ? 'btn-link' : 'btn-link event';
-
-            // 顯示結果區
             document.getElementById('start-area').style.display = 'none';
             document.getElementById('result-area').style.display = 'block';
             
             hideLoading();
+        }
+
+        // --- AI Prompt 控制 ---
+        function toggleAiPrompt() {
+            const box = document.getElementById('gemini-prompt');
+            if (box.style.display === 'none') {
+                box.style.display = 'block';
+                box.select();
+                navigator.clipboard.writeText(box.value);
+                alert("指令已複製！請貼給 Gemini");
+            } else {
+                box.style.display = 'none';
+            }
         }
 
         function showLoading(text) {
