@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>週末抗懶散 V7.0 (穩定版)</title>
+    <title>週末抗懶散 V8.0 (絕對不死版)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -71,6 +71,11 @@
             background: linear-gradient(135deg, #8e44ad 0%, #ff7675 100%);
             box-shadow: 0 8px 20px rgba(142, 68, 173, 0.3);
         }
+        /* 保底模式按鈕顏色 */
+        .main-btn.fallback-mode {
+            background: linear-gradient(135deg, #f0932b 0%, #ffbe76 100%);
+            box-shadow: 0 8px 20px rgba(240, 147, 43, 0.3);
+        }
 
         #result-area { display: none; margin-top: 10px; }
         .mini-header { display: none; align-items: center; justify-content: space-between; }
@@ -80,6 +85,7 @@
         .res-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .res-tag { background: #e0f2f1; color: #009688; padding: 5px 10px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; }
         .res-tag.event { background: #f3e5f5; color: #8e44ad; }
+        .res-tag.fallback { background: #fff3e0; color: #e67e22; }
         
         .res-title { font-size: 1.3rem; font-weight: 800; color: #2c3e50; margin-bottom: 8px; line-height: 1.3; }
         .res-desc { 
@@ -87,6 +93,7 @@
             background: #f8f9fa; padding: 15px; border-radius: 12px; border-left: 4px solid #38ef7d;
         }
         .res-desc.event { border-left-color: #8e44ad; }
+        .res-desc.fallback { border-left-color: #e67e22; }
 
         .action-row { display: flex; gap: 10px; margin-bottom: 10px; }
         .btn-search {
@@ -102,6 +109,8 @@
             box-shadow: 0 4px 10px rgba(17, 153, 142, 0.3);
         }
         .btn-link.event { background: #8e44ad; box-shadow: 0 4px 10px rgba(142, 68, 173, 0.3); }
+        .btn-link.fallback { background: #e67e22; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3); }
+
         .btn-retry {
             width: 45px; background: #f0f0f0; color: #555; border: none;
             border-radius: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -134,7 +143,7 @@
     </div>
 
     <div class="top-bar">
-        <div class="app-title">🇹🇼 週末抗懶散 V7.0</div>
+        <div class="app-title">🇹🇼 週末抗懶散 V8.0</div>
     </div>
 
     <div id="map"></div>
@@ -168,7 +177,7 @@
                         <i class="fas fa-random"></i> 隨機生成行程
                     </button>
                     <p id="hint-text" style="text-align:center; font-size:0.8rem; color:#999; margin-top:10px;">
-                        * 包含：大學、圖書館、步道、溫泉、市場、咖啡廳
+                        * 系統將搜尋附近 5~20km 內的有趣地點
                     </p>
                 </div>
 
@@ -198,37 +207,19 @@
         let currentLat, currentLng;
         let currentMode = 'normal';
 
-        // --- 多重備援伺服器列表 ---
-        const overpassServers = [
-            "https://overpass-api.de/api/interpreter", // 德國主機
-            "https://maps.mail.ru/osm/tools/overpass/api/interpreter", // 俄羅斯鏡像
-            "https://overpass.kumi.systems/api/interpreter" // 歐洲備用
-        ];
-
+        // 資料來源：活動主題 (Keywords for Nominatim)
+        // 使用 "q" 參數進行模糊搜尋
         const activityThemes = [
-            { 
-                id: "university", name: "🎓 大學漫步", queryTemplate: 'node["amenity"="university"]', 
-                tasks: ["去校園裡散步，找找看有沒有便宜的學餐。", "在校園草皮上坐著，觀察來往的學生。", "找到校園裡最老的一棵樹，拍張照。"]
-            },
-            { 
-                id: "library", name: "📚 靈魂充電", queryTemplate: 'node["amenity"="library"]', 
-                tasks: ["進去隨機抽一本雜誌，坐著讀 20 分鐘。", "走到旅遊書區，決定下次旅行的國家。", "找一本你出生那年出版的書。"]
-            },
-            { 
-                id: "worship", name: "⛩️ 沉澱心靈", queryTemplate: 'node["amenity"="place_of_worship"]', 
-                tasks: ["進去感受建築的寧靜。", "觀察廟宇/教堂裡的雕刻細節。", "找個安靜的角落，關上手機 5 分鐘。"]
-            },
-            { 
-                id: "nature", name: "🌲 自然呼吸", queryTemplate: '(node["leisure"="park"]; node["tourism"="viewpoint"];)', 
-                tasks: ["找到這個地方的最高點，深呼吸三次。", "找張長椅發呆 10 分鐘。", "拍一張逆光的樹葉照片。"]
-            },
-            { 
-                id: "cafe", name: "☕ 獨立咖啡", queryTemplate: 'node["amenity"="cafe"]', 
-                tasks: ["點一杯沒喝過的特調。", "觀察店員沖咖啡的動作。", "帶一本筆記本，寫下這週的心情。"]
-            }
+            { id: "university", name: "🎓 大學漫步", keyword: "university", tasks: ["去校園散步，找找便宜學餐。", "在草皮上發呆，觀察學生。"] },
+            { id: "library", name: "📚 靈魂充電", keyword: "library", tasks: ["隨機抽一本雜誌，讀 20 分鐘。", "找一本你出生那年出版的書。"] },
+            { id: "temple", name: "⛩️ 沉澱心靈", keyword: "temple", tasks: ["觀察建築的雕刻細節。", "找個安靜角落，關手機 5 分鐘。"] },
+            { id: "park", name: "🌲 自然呼吸", keyword: "park", tasks: ["深呼吸三次。", "找張長椅發呆 10 分鐘。"] },
+            { id: "cafe", name: "☕ 獨立咖啡", keyword: "cafe", tasks: ["點一杯沒喝過的特調。", "帶筆記本寫下這週心情。"] },
+            { id: "market", name: "🥬 傳統市場", keyword: "market", tasks: ["感受在地活力。", "買一樣當季水果。"] }
         ];
 
-        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart"];
+        // 連鎖店黑名單
+        const chainBlockList = ["Starbucks", "Louisa", "7-Eleven", "FamilyMart", "McDonald", "KFC", "PxMart", "Carrefour", "PX Mart", "Mos Burger"];
 
         window.onload = function() {
             initMap();
@@ -251,8 +242,8 @@
                         hideLoading();
                     },
                     (err) => {
-                        alert("定位失敗，將使用預設位置");
-                        currentLat = 25.0478; currentLng = 121.5170;
+                        alert("定位失敗，使用預設位置");
+                        currentLat = 25.0478; currentLng = 121.5170; 
                         updateUserLocation(currentLat, currentLng);
                         hideLoading();
                     },
@@ -308,129 +299,139 @@
         async function startMission() {
             if (!currentLat) { alert("請先定位"); return; }
             expandPanel();
-            const radius = Math.floor(Math.random() * (8000 - 2000) + 2000);
+            
+            // 隨機半徑: 2km ~ 15km
+            const radius = Math.floor(Math.random() * (15000 - 2000) + 2000);
             
             if (currentMode === 'normal') {
-                showLoading("正在掃描周邊 (嘗試連線)...");
+                showLoading("正在搜尋有趣角落...");
                 const theme = activityThemes[Math.floor(Math.random() * activityThemes.length)];
-                fetchOSM(theme, radius, false);
+                fetchNominatim(theme, radius);
             } else {
                 showLoading("正在搜尋展覽場館...");
+                // 展覽模式關鍵字
                 const theme = { 
                     name: "🏛️ 藝文場館", 
-                    task: "前往此處，看看海報牆或售票口最近有什麼演出或展覽。",
-                    queryTemplate: '(node["tourism"~"museum|gallery"]; node["amenity"~"arts_centre|theatre|cinema"];)'
+                    keyword: "museum", // 先搜博物館，如果沒有再試試別的
+                    task: "前往此處，看看海報牆或售票口最近有什麼演出或展覽。"
                 };
-                fetchOSM(theme, radius, false);
+                fetchNominatim(theme, radius);
             }
         }
 
-        // --- 核心：多伺服器輪詢機制 ---
-        async function fetchWithRetry(query, serverIndex = 0) {
-            if (serverIndex >= overpassServers.length) {
-                throw new Error("所有地圖伺服器皆無回應");
-            }
+        // --- 核心：改用 Nominatim API (更穩定) ---
+        async function fetchNominatim(theme, radius) {
+            // 計算 Bounding Box (大約)
+            const degLat = radius / 111000;
+            const degLng = radius / (111000 * Math.cos(currentLat * Math.PI / 180));
+            
+            const viewbox = [
+                currentLng - degLng, // left
+                currentLat + degLat, // top
+                currentLng + degLng, // right
+                currentLat - degLat  // bottom
+            ].join(',');
 
-            const url = overpassServers[serverIndex] + "?data=" + encodeURIComponent(query);
+            // Nominatim Search Query
+            // format=json, limit=20, bounded=1 (限制在範圍內), addressdetails=1 (為了抓行政區)
+            const url = `https://nominatim.openstreetmap.org/search?q=${theme.keyword}&format=json&viewbox=${viewbox}&bounded=1&limit=25&addressdetails=1`;
             
             try {
-                // 設定 5 秒 timeout，避免卡死
+                // 加個 Timeout 防止卡死
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 6000); // 6秒超時
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
                 
                 const response = await fetch(url, { signal: controller.signal });
                 clearTimeout(timeoutId);
-                
-                if (!response.ok) throw new Error("Server Error");
-                return await response.json();
-            } catch (error) {
-                console.warn(`Server ${serverIndex} failed, trying next...`);
-                // 顯示狀態給使用者
-                showLoading(`連線忙碌，切換線路 (${serverIndex + 1}/${overpassServers.length})...`);
-                return await fetchWithRetry(query, serverIndex + 1);
-            }
-        }
 
-        async function fetchOSM(theme, radius, isRetry) {
-            const query = `[out:json][timeout:15];(${theme.queryTemplate}(around:${radius},${currentLat},${currentLng}););out 30;`;
-            
-            try {
-                const data = await fetchWithRetry(query);
-                let candidates = data.elements || [];
-                
-                if (currentMode === 'normal') {
+                if (!response.ok) throw new Error("API Error");
+                const data = await response.json();
+
+                let candidates = data;
+
+                // 過濾連鎖店 (僅日常模式)
+                if (currentMode === 'normal' && theme.id === 'cafe') {
                     candidates = candidates.filter(place => {
-                        const name = place.tags.name || "";
-                        return !chainBlockList.some(chain => name.includes(chain));
+                        const name = (place.name || "").toLowerCase();
+                        return !chainBlockList.some(chain => name.includes(chain.toLowerCase()));
                     });
                 }
 
+                // --- 找不到資料的 Fallback 機制 ---
                 if (candidates.length === 0) {
-                    if (!isRetry) {
-                        console.log("擴大搜尋...");
-                        showLoading("範圍內無結果，擴大搜尋中...");
-                        fetchOSM(theme, 20000, true);
+                    console.warn("Nominatim 無結果，啟動保底模式");
+                    
+                    // 如果原本是在找比較稀有的(大學/展覽)，改找公園
+                    if (theme.id !== 'park') {
+                        const fallbackTheme = activityThemes.find(t => t.id === 'park');
+                        fetchNominatim(fallbackTheme, 10000); // 找 10km 內的公園
                         return;
                     } else {
-                        if (theme.id !== 'nature') {
-                            console.log("切換保底模式...");
-                            const fallbackTheme = activityThemes.find(t => t.id === 'nature');
-                            fetchOSM(fallbackTheme, 10000, true);
-                            return;
-                        } else {
-                            alert("附近真的太荒涼了...找不到適合的地點。");
-                            hideLoading();
-                            return;
-                        }
+                        // 連公園都找不到 (極端狀況)，直接觸發「Google Maps 救援」
+                        triggerGoogleMapsFallback(theme);
+                        return;
                     }
                 }
 
                 const place = candidates[Math.floor(Math.random() * candidates.length)];
                 
-                // 取得城市名稱 (反向地理編碼) 以精準搜尋
-                getCityAndGenerateResult(place, theme);
+                // 提取行政區
+                const addr = place.address || {};
+                const city = addr.city || addr.town || addr.district || addr.county || "";
+                
+                let taskText = theme.task;
+                if (theme.tasks) taskText = theme.tasks[Math.floor(Math.random() * theme.tasks.length)];
+
+                generateResult(place, theme.name, taskText, city);
 
             } catch (e) {
                 console.error(e);
-                alert("地圖資料連線失敗，請檢查網路狀態");
-                hideLoading();
+                // 發生錯誤 (連線超時等)，直接觸發 Google Maps 救援，不要讓使用者看到錯誤
+                triggerGoogleMapsFallback(theme);
             }
         }
 
-        // --- 逆向地理編碼 (取得行政區名稱) ---
-        async function getCityAndGenerateResult(place, theme) {
-            let cityName = "";
-            try {
-                // 使用 Nominatim 簡單抓取行政區
-                const geoUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${place.lat}&lon=${place.lon}&zoom=14`;
-                // 加個 timeout 避免卡住
-                const controller = new AbortController();
-                setTimeout(() => controller.abort(), 2000); 
-                
-                const res = await fetch(geoUrl, { signal: controller.signal });
-                const data = await res.json();
-                
-                // 嘗試抓取 鄉鎮市區 名稱
-                cityName = data.address.city || data.address.town || data.address.district || data.address.county || "";
-            } catch (e) {
-                console.log("無法取得行政區名稱，將使用純店名");
-            }
+        // --- 終極保底：直接導流去 Google Maps ---
+        function triggerGoogleMapsFallback(theme) {
+            hideLoading();
+            // 造一個假地點資料，引導去 Google 搜尋
+            const fallbackName = `附近的 ${theme.keyword === 'museum' ? '展覽' : theme.name.replace('🎓 ','').replace('☕ ','')}`;
+            
+            // 搜尋連結
+            const gmapSearchUrl = `https://www.google.com/maps/search/${encodeURIComponent(fallbackName)}`;
+            
+            // UI 更新 (顯示橘色保底卡片)
+            if (targetMarker) map.removeLayer(targetMarker);
+            if (routeLine) map.removeLayer(routeLine);
+            if (rangeCircle) map.removeLayer(rangeCircle);
 
-            let taskText = theme.task;
-            if (theme.tasks) {
-                taskText = theme.tasks[Math.floor(Math.random() * theme.tasks.length)];
-            }
+            document.getElementById('res-tag').innerText = "💡 靈感建議";
+            document.getElementById('res-tag').className = "res-tag fallback";
+            document.getElementById('res-dist').innerText = "未知距離";
+            document.getElementById('res-name').innerText = fallbackName;
+            
+            document.getElementById('res-desc').innerHTML = "地圖資料連線忙碌，但別因此放棄出門！<br>點擊下方按鈕，直接在 Google Maps 尋找目標。";
+            document.getElementById('res-desc').className = "res-desc fallback";
 
-            generateResult(place, theme.name, taskText, cityName);
+            document.getElementById('action-buttons').innerHTML = `
+                <button class="btn-retry" onclick="startMission()"><i class="fas fa-redo"></i></button>
+                <a href="${gmapSearchUrl}" target="_blank" class="btn-link fallback" style="flex:2">
+                    <i class="fab fa-google"></i> 直接在 Google Maps 搜尋
+                </a>
+            `;
+            
+            document.getElementById('mini-title').innerText = fallbackName;
+            document.getElementById('start-area').style.display = 'none';
+            document.getElementById('result-area').style.display = 'block';
         }
 
         function generateResult(place, type, desc, cityName) {
-            const tags = place.tags || {};
-            const name = tags.name || "未知的地點";
-            const lat = place.lat;
-            const lon = place.lon;
+            const lat = parseFloat(place.lat);
+            const lon = parseFloat(place.lon);
+            const name = place.name || "神秘地點";
             const dist = (map.distance([currentLat, currentLng], [lat, lon]) / 1000).toFixed(1);
 
+            // 更新地圖
             if (targetMarker) map.removeLayer(targetMarker);
             if (routeLine) map.removeLayer(routeLine);
             if (rangeCircle) map.removeLayer(rangeCircle);
@@ -452,6 +453,7 @@
             }).addTo(map);
             map.fitBounds(routeLine.getBounds().pad(0.3));
 
+            // 更新文字
             document.getElementById('res-tag').innerText = type;
             document.getElementById('res-tag').className = currentMode === 'normal' ? 'res-tag' : 'res-tag event';
             document.getElementById('res-dist').innerText = `距離 ${dist} km`;
@@ -459,7 +461,7 @@
             document.getElementById('res-desc').innerHTML = desc;
             document.getElementById('res-desc').className = currentMode === 'normal' ? 'res-desc' : 'res-desc event';
             
-            // 組合搜尋字串：店名 + 行政區 + 關鍵字
+            // 搜尋邏輯：店名 + 行政區 (避免搜到分店)
             const searchContext = cityName ? `${name} ${cityName}` : name;
             
             const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchContext + " 評價 介紹")}`;
